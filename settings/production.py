@@ -6,7 +6,6 @@ from .common import *
 #                             Production Settings                             #
 ###############################################################################
 
-SECRET_KEY = os.environ('DJANGO_SECRET_KEY')
 DEBUG = False
 
 # Database
@@ -15,10 +14,10 @@ DEBUG = False
 if 'RDS_DB_NAME' in os.environ:
     DATABASES = {
         'default': {
-            'ENGINE': 'django.db.backends.mysql',
-            'NAME': os.environ['RDS_DB_NAME'],
-            'USER': os.environ['RDS_USERNAME'],
-            'PASSWORD': os.environ['RDS_PASSWORD'],
+            'ENGINE': 'django.db.backends.postgresql',
+            'NAME': os.environ['PROD_RDS_DB_NAME'],
+            'USER': os.environ['PROD_RDS_USERNAME'],
+            'PASSWORD': os.environ['PROD_RDS_PASSWORD'],
             'HOST': os.environ['RDS_HOSTNAME'],
             'PORT': os.environ['RDS_PORT'],
         }
