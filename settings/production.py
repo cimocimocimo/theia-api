@@ -18,7 +18,7 @@ ALLOWED_HOSTS = [
 if 'RDS_DB_NAME' in os.environ:
     DATABASES = {
         'default': {
-            'ENGINE': 'django.db.backends.postgresql',
+            'ENGINE': 'django.db.backends.postgresql_psycopg2',
             'NAME': os.environ['PROD_RDS_DB_NAME'],
             'USER': os.environ['PROD_RDS_USERNAME'],
             'PASSWORD': os.environ['PROD_RDS_PASSWORD'],

@@ -15,7 +15,7 @@ ALLOWED_HOSTS = ['*',]
 
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.postgresql',
+        'ENGINE': 'django.db.backends.postgresql_psycopg2',
         'NAME': os.environ.setdefault('DEV_RDS_DB_NAME', 'theia_api'),
         'USER': os.environ.setdefault('DEV_RDS_USERNAME', 'theia'),
         'PASSWORD': os.environ.setdefault('DEV_RDS_PASSWORD', 'theia'),
