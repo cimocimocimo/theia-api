@@ -8,6 +8,10 @@ from .common import *
 
 DEBUG = True
 
+ALLOWED_HOSTS = [
+    'api.staging.theiacouture.com',
+    'theia-api-staging.us-east-1.elasticbeanstalk.com',]
+
 # Database
 # https://docs.djangoproject.com/en/1.10/ref/settings/#databases
 
