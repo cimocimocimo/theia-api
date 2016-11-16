@@ -14,10 +14,10 @@ DEBUG = True
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': os.environ['DEV_RDS_DB_NAME'],
-        'USER': os.environ['DEV_RDS_USERNAME'],
-        'PASSWORD': os.environ['DEV_RDS_PASSWORD'],
-        'HOST': os.environ['RDS_HOSTNAME'],
-        'PORT': os.environ['RDS_PORT'],
+        'NAME': os.environ.setdefault('DEV_RDS_DB_NAME', 'theia_api'),
+        'USER': os.environ.setdefault('DEV_RDS_USERNAME', 'theia'),
+        'PASSWORD': os.environ.setdefault('DEV_RDS_PASSWORD', 'theia'),
+        'HOST': os.environ.setdefault('RDS_HOSTNAME', '127.0.0.1'),
+        'PORT': os.environ.setdefault('RDS_PORT', '5432'),
     }
 }
