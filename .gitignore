@@ -1,6 +1,9 @@
 # Python Files
 __pycache__
 
+# Django
+/static/*
+
 # Elastic Beanstalk Files
 .elasticbeanstalk/*
 !.elasticbeanstalk/*.cfg.yml
