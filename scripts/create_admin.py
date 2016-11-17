@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import sys
+from django.conf import settings
 
 try:
 
@@ -10,7 +11,10 @@ try:
 
     from django.contrib.auth.models import User
     if User.objects.count() == 0:
-        admin = User.objects.create_superuser('admin', 'aaron@cimolini.com', 'qwerasdf')
+        admin = User.objects.create_superuser(
+            'admin',
+            'aaron@cimolini.com',
+            settings.DATABASES['default']['PASSWORD'])
         admin.save()
 
 except:
