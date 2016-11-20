@@ -26,3 +26,13 @@ DATABASES = {
         'PORT': os.environ['RDS_PORT'],
     }
 }
+
+# Redis
+REDIS_URL = os.environ.setdefault['PROD_REDIS_URL']
+
+# Cache
+CACHES['default']['LOCATION'] = REDIS_URL
+
+# Celery
+CELERY_BROKER_URL = REDIS_URL
+CELERY_RESULT_BACKEND = REDIS_URL

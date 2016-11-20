@@ -24,10 +24,12 @@ DATABASES = {
     }
 }
 
+# Redis
+REDIS_URL = os.environ.setdefault('DEV_REDIS_URL', 'redis://')
+
+# Cache
+CACHES['default']['LOCATION'] = REDIS_URL
+
 # Celery
-CELERY_BROKER_URL = os.environ.setdefault('DEV_CELERY_BROKER_URL', 'redis://')
-CELERY_RESULT_BACKEND = os.environ.setdefault('DEV_CELERY_RESULT_BACKEND', 'redis://')
-CELERY_ACCEPT_CONTENT = ['application/json']
-CELERY_TASK_SERIALIZER = 'json'
-CELERY_RESULT_SERIALIZER = 'json'
-CELERY_TIMEZONE = 'America/Montreal'
+CELERY_BROKER_URL = REDIS_URL
+CELERY_RESULT_BACKEND = REDIS_URL

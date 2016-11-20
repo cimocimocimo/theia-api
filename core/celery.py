@@ -5,8 +5,6 @@ from celery import Celery
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'settings.development')
 
 app = Celery('core')
-#              broker='redis://',
-#              backend='redis://',)
 
 app.config_from_object('django.conf:settings', namespace='CELERY')
 
