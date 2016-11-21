@@ -24,6 +24,12 @@ DATABASES = {
     }
 }
 
+# Logging
+LOGGING['handlers']['file']['level'] = 'DEBUG'
+LOGGING['loggers']['django']['level'] = 'DEBUG'
+if 'DJANGO_LOG_FILENAME' in os.environ:
+    LOGGING['handlers']['file']['filename'] = os.environ['DJANGO_LOG_FILENAME']
+
 # Redis
 REDIS_URL = os.environ.setdefault('DEV_REDIS_URL', 'redis://')
 

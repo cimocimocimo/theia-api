@@ -6,18 +6,24 @@ from django.utils.decorators import method_decorator
 from hashlib import sha256
 import json, hmac
 from data_import.tasks import handle_webhook
+import logging
+
+log = logging.getLogger('django')
 
 from pprint import pprint
 
 # Create your views here.
 class WebhookView(View):
+    handle = 'inventory-updated'
+
     @method_decorator(csrf_exempt)
     def dispatch(self, request, *args, **kwargs):
         return super(WebhookView, self).dispatch(request, *args, **kwargs)
 
     def get(self, request, handle):
         challenge = request.GET.get('challenge')
-        if handle == 'inventory-updated' and challenge is not None:
+        if handle == self.handle and challenge is not None:
+            log.info('challenge: {}'.format(challenge))
             return HttpResponse(challenge)
 
         raise Http404('Webhook not found')
@@ -35,11 +41,11 @@ class WebhookView(View):
                     sha256).hexdigest()):
             return HttpResponseForbidden()
 
-        if handle == 'inventory-updated':
+        if handle == self.handle:
             raw_body = request.body.decode('utf-8')
             try:
                 data = json.loads(raw_body)
-                pprint(data)
+                log.info('webhook data: {}'.format(data))
 
                 # Process request in worker task
                 handle_webhook(data)
