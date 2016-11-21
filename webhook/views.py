@@ -33,7 +33,7 @@ class WebhookView(View):
         # Make sure this is a valid request from Dropbox
         signature = request.META['HTTP_X_DROPBOX_SIGNATURE']
         app_secret = settings.DROPBOX_APP_SECRET
-        if not hmac.compare_digest(
+        if not settings.DEBUG and not hmac.compare_digest(
                 signature,
                 hmac.new(
                     app_secret.encode('utf-8'),
