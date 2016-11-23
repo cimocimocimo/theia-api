@@ -28,7 +28,12 @@ DATABASES = {
 }
 
 # Redis
-REDIS_URL = os.environ.setdefault['PROD_REDIS_URL']
+REDIS_DB = os.environ['PROD_REDIS_DB']
+REDIS_URL = '{}{}:{}/{}'.format(
+    REDIS_PROTOCOL,
+    REDIS_DOMAIN,
+    REDIS_PORT,
+    REDIS_DB)
 
 # Cache
 CACHES['default']['LOCATION'] = REDIS_URL

@@ -35,6 +35,7 @@ INSTALLED_APPS = [
     # Local Apps
     'core',
     'webhook',
+    'data_import',
 ]
 
 MIDDLEWARE = [
@@ -132,6 +133,11 @@ LOGGING = {
         },
     },
 }
+
+# Redis
+REDIS_PROTOCOL = 'redis://'
+REDIS_DOMAIN = 'theia-api-dev.iby5d3.0001.use1.cache.amazonaws.com'
+REDIS_PORT = 6379
 
 # Dropbox settings
 DROPBOX_APP_KEY = os.environ['DROPBOX_APP_KEY']

@@ -31,7 +31,13 @@ if 'DJANGO_LOG_FILENAME' in os.environ:
     LOGGING['handlers']['file']['filename'] = os.environ['DJANGO_LOG_FILENAME']
 
 # Redis
-REDIS_URL = os.environ.setdefault('DEV_REDIS_URL', 'redis://')
+REDIS_DB = os.environ['DEV_REDIS_DB']
+REDIS_DOMAIN = os.environ['DEV_REDIS_DOMAIN']
+REDIS_URL = '{}{}:{}/{}'.format(
+    REDIS_PROTOCOL,
+    REDIS_DOMAIN,
+    REDIS_PORT,
+    REDIS_DB)
 
 # Cache
 CACHES['default']['LOCATION'] = REDIS_URL
