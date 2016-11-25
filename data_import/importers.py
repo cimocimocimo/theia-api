@@ -53,21 +53,23 @@ class ProductImporter(ImporterBase):
     def import_data(self):
         for row in self.csv:
             prod, prod_created = Product.objects.get_or_create(
-                season=row[ProdHeaders.season],
                 style_number=row[ProdHeaders.style],
-                name=row[ProdHeaders.name],
-                department=row[ProdHeaders.department],
-                division=row[ProdHeaders.division],
-                available_start=self._date_or_none_from_string(row[ProdHeaders.avail_start]),
-                available_end=self._date_or_none_from_string(row[ProdHeaders.avail_end]),
-                description=row[ProdHeaders.description],
-                archived=(True if row[ProdHeaders.archived] == 'Y' else False),
-                brand_id=row[ProdHeaders.brand_id],
-                wholesale_usd=row[ProdHeaders.wholesale_usd],
-                retail_usd=row[ProdHeaders.retail_usd],
-                wholesale_cad=row[ProdHeaders.wholesale_cad],
-                retail_cad=row[ProdHeaders.retail_cad],
-                category=row[ProdHeaders.category],
+                defaults={
+                    'season': row[ProdHeaders.season],
+                    'name': row[ProdHeaders.name],
+                    'department': row[ProdHeaders.department],
+                    'division': row[ProdHeaders.division],
+                    'available_start': self._date_or_none_from_string(row[ProdHeaders.avail_start]),
+                    'available_end': self._date_or_none_from_string(row[ProdHeaders.avail_end]),
+                    'description': row[ProdHeaders.description],
+                    'archived': (True if row[ProdHeaders.archived] == 'Y' else False),
+                    'brand_id': row[ProdHeaders.brand_id],
+                    'wholesale_usd': row[ProdHeaders.wholesale_usd],
+                    'retail_usd': row[ProdHeaders.retail_usd],
+                    'wholesale_cad': row[ProdHeaders.wholesale_cad],
+                    'retail_cad': row[ProdHeaders.retail_cad],
+                    'category': row[ProdHeaders.category],
+                }
             )
             color, color_created = Color.objects.get_or_create(
                 name=row[ProdHeaders.color],

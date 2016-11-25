@@ -5,8 +5,9 @@ from django.views.decorators.csrf import csrf_exempt
 from django.utils.decorators import method_decorator
 from hashlib import sha256
 import json, hmac
-from data_import.tasks import handle_webhook
 import logging
+
+from data_import.tasks import handle_webhook
 
 log = logging.getLogger('django')
 

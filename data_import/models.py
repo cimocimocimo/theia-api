@@ -12,8 +12,8 @@ class Size(models.Model):
     display_name = models.CharField(max_length=32)
 
 class Product(models.Model):
+    style_number = models.CharField(max_length=64, unique=True)
     season = models.CharField(max_length=128)
-    style_number = models.CharField(max_length=64)
     name = models.CharField(max_length=256)
     department = models.CharField(max_length=64)
     division = models.CharField(max_length=64)
@@ -28,7 +28,7 @@ class Product(models.Model):
     retail_cad = models.PositiveIntegerField()
 
     # TODO: create a category hierarchy, using mptt or treebeard this could be
-    # used to create the eveningwear and bridal parent categories then have
+    # used to create the evening wear and bridal parent categories then have
     # their sub-categories.
     category = models.CharField(max_length=64)
 

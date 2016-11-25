@@ -1,6 +1,7 @@
 from celery import shared_task
 from django.conf import settings
 import logging, dropbox, redis, json, re, csv
+from .importers import ProductImporter
 
 log = logging.getLogger('django')
 dbx = dropbox.Dropbox(settings.DROPBOX_TOKEN)
@@ -70,18 +71,13 @@ def handle_webhook(account):
 @shared_task
 def fetch_data(export_type, company, file_id):
     _, response = dbx.files_download(file_id)
-    lines = response.text.splitlines()
-    # trim the trailing comma, the export files all seem to have it. By
-    # removing it here we avoid creating an empty column on the right side
-    # of the CSV.
-    lines = [l.rstrip(',') for l in lines]
-    file_csv = csv.DictReader(lines)
 
     if export_type == 'Inventory':
 
         pass
-
     elif export_type == 'Product':
+        importer = ProductImporter()
+        importer.import_data(response.text)
         pass
 
     log.debug(file_csv)
