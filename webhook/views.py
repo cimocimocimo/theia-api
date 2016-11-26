@@ -1,4 +1,4 @@
-from django.http import Http404
+from django.http import Http404, HttpResponse, HttpResponseServerError
 from django.conf import settings
 from django.views.generic import View
 from django.views.decorators.csrf import csrf_exempt
@@ -15,5 +15,8 @@ class WebhookView(View):
     def dispatch(self, request, handle, *args, **kwargs):
         if not handle in self.webhooks:
             raise Http404('Webhook not found')
-
-        return self.webhooks[handle][request.method](request)
+        response = self.webhooks[handle][request.method](request)
+        if isinstance(response, HttpResponse):
+            return response
+        else:
+            return HttpResponseServerError
