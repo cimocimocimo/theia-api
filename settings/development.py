@@ -32,7 +32,8 @@ if 'DJANGO_LOG_FILENAME' in os.environ:
 
 # Redis
 REDIS_DB = os.environ['DEV_REDIS_DB']
-REDIS_DOMAIN = os.environ['DEV_REDIS_DOMAIN']
+if 'DEV_REDIS_DOMAIN' in os.environ:
+    REDIS_DOMAIN = os.environ['DEV_REDIS_DOMAIN']
 REDIS_URL = '{}{}:{}/{}'.format(
     REDIS_PROTOCOL,
     REDIS_DOMAIN,

@@ -33,9 +33,9 @@ INSTALLED_APPS = [
     'django_extensions',
 
     # Local Apps
-    'core',
-    'webhook',
-    'data_import',
+    'core.apps.CoreConfig',
+    'webhook.apps.WebhookConfig',
+    'data_import.apps.DataImportConfig',
 ]
 
 MIDDLEWARE = [
