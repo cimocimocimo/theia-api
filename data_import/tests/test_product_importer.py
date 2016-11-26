@@ -14,24 +14,28 @@ class TestProductImporter(TestCase):
 
     @classmethod
     def setUpClass(cls):
-        print(cls.product_csv_file_path)
         # open the product data csv and store the text.
         f = open(cls.product_csv_file_path, encoding='cp1252')
         cls.product_csv_text = f.read()
+
+        with open(cls.product_csv_file_path, encoding='cp1252') as prodcsv:
+            test_reader = csv.DictReader(prodcsv)
+            style_numbers = set()
+            for row in test_reader:
+                style_numbers.add(row['STYLE NUMBER'])
+            cls.numb_prods = len(style_numbers)
 
     @classmethod
     def tearDownClass(cls):
         pass
 
-    def test_init(self):
-        importer = ProductImporter(self.product_csv_text)
-        # init should create a DictReader and the first column name should be
+    def test_import_data(self):
+        importer = ProductImporter()
+        importer.import_data(self.product_csv_text)
+        # should create a DictReader and the first column name should be
         # "SEASON".
         self.assertIsInstance(importer.csv, csv.DictReader)
         self.assertEqual('SEASON', importer.csv.fieldnames[0])
-
-    def test_import_data(self):
-        importer = ProductImporter(self.product_csv_text)
-        importer.import_data()
         prod = Product.objects.all().first()
         self.assertIsInstance(prod, Product)
+        self.assertEqual(self.numb_prods, Product.objects.count())
