@@ -114,6 +114,19 @@ class ProductImporter(ImporterBase):
             return None
 
 class InventoryImporter(ImporterBase):
-    def __init__(self):
-        super().__init__(text)
+    missing_upcs = 0
 
+    def __init__(self):
+        super().__init__()
+
+    def process_row(self, row):
+        upc = int(row['UPC'])
+        inventory = int(row['QUANTITY'])
+        try:
+            variant = Variant.objects.get(upc=upc)
+        except Variant.DoesNotExist:
+            self.missing_upcs += 1
+        else:
+            if variant.inventory != inventory:
+                variant.inventory = inventory
+                variant.save(update_fields=['inventory'])

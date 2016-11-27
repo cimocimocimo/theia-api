@@ -44,6 +44,7 @@ class Variant(models.Model):
     product = models.ForeignKey(Product, on_delete = models.CASCADE)
     color = models.ForeignKey(Color, on_delete = models.CASCADE)
     size = models.ForeignKey(Size, on_delete = models.CASCADE)
+    inventory = models.SmallIntegerField(default=0)
 
 # TODO: Use this later to create a category hierarchy.
 # class Category(models.Model):
