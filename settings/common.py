@@ -143,6 +143,7 @@ REDIS_PORT = 6379
 DROPBOX_APP_KEY = os.environ['DROPBOX_APP_KEY']
 DROPBOX_APP_SECRET = os.environ['DROPBOX_APP_SECRET']
 DROPBOX_TOKEN = os.environ['DROPBOX_TOKEN']
+DROPBOX_EXPORT_FOLDER = os.environ.setdefault('DROPBOX_EXPORT_FOLDER', '/e-commerce')
 
 # Celery
 CELERY_ACCEPT_CONTENT = ['application/json']

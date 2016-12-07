@@ -50,38 +50,87 @@ class ImporterBase:
         lines = [l.rstrip(',') for l in lines]
         return csv.DictReader(lines)
 
+    def _is_valid_upc(self, upc):
+        try:
+            upc = int(upc)
+        except ValueError:
+            return False
+
+        if len(str(upc)) == 12:
+            return True
+        else:
+            return False
+
+
     def process_row(self, row):
         pass
 
 class ProductImporter(ImporterBase):
     date_format = '%m/%d/%Y'
 
+    styles_imported = set()
+
     def process_row(self, row):
-        # get or create the product for this row. 
-        prod, prod_created = Product.objects.get_or_create(
-            style_number=row[ProdHeaders.style],
+        # import data
+
+        # style number
+        style_number = row[ProdHeaders.style]
+        season = row[ProdHeaders.season]
+        name = row[ProdHeaders.name]
+        department = row[ProdHeaders.department]
+        division = row[ProdHeaders.division]
+        available_start = self._date_or_none_from_string(row[ProdHeaders.avail_start])
+        available_end = self._date_or_none_from_string(row[ProdHeaders.avail_end])
+        description = row[ProdHeaders.description]
+        archived = (True if row[ProdHeaders.archived] == 'Y' else False)
+        brand_id = row[ProdHeaders.brand_id]
+        wholesale_usd = row[ProdHeaders.wholesale_usd]
+        retail_usd = row[ProdHeaders.retail_usd]
+        wholesale_cad = row[ProdHeaders.wholesale_cad]
+        retail_cad = row[ProdHeaders.retail_cad]
+        category = row[ProdHeaders.category]
+
+        # If this product was in the DB already but it's the first time we've
+        # seen it in this import. Then let's update the product with the data
+        # from this line in the spreadsheet.
+        if style_number in self.styles_imported:
+            # this has been imported already in a previous row
+            # so we just need to get the product and the color and Variants to it.
+            prod = Product.objects.get(style_number=style_number)
+            prod_created = False
+        else:
+            # this has not been imported yet
+            # get or update product for this row.
+            # this is because the product may be in the db already. so we
+            # update it if the data in the spreadsheet has changed
+            prod, prod_created = Product.objects.update_or_create(
+                style_number=style_number,
+                defaults={
+                    'season': season,
+                    'name': name,
+                    'department': department,
+                    'division': division,
+                    'available_start': available_start,
+                    'available_end': available_end,
+                    'description': description,
+                    'archived': archived,
+                    'brand_id': brand_id,
+                    'wholesale_usd': wholesale_usd,
+                    'retail_usd': retail_usd,
+                    'wholesale_cad': wholesale_cad,
+                    'retail_cad': retail_cad,
+                    'category': category,
+                }
+            )
+
+        # get or create the color option for this row
+        color, color_created = Color.objects.update_or_create(
+            code=row[ProdHeaders.color_code],
             defaults={
-                'season': row[ProdHeaders.season],
-                'name': row[ProdHeaders.name],
-                'department': row[ProdHeaders.department],
-                'division': row[ProdHeaders.division],
-                'available_start': self._date_or_none_from_string(row[ProdHeaders.avail_start]),
-                'available_end': self._date_or_none_from_string(row[ProdHeaders.avail_end]),
-                'description': row[ProdHeaders.description],
-                'archived': (True if row[ProdHeaders.archived] == 'Y' else False),
-                'brand_id': row[ProdHeaders.brand_id],
-                'wholesale_usd': row[ProdHeaders.wholesale_usd],
-                'retail_usd': row[ProdHeaders.retail_usd],
-                'wholesale_cad': row[ProdHeaders.wholesale_cad],
-                'retail_cad': row[ProdHeaders.retail_cad],
-                'category': row[ProdHeaders.category],
+                'name': row[ProdHeaders.color],
             }
         )
-        # get or create the color option for this row
-        color, color_created = Color.objects.get_or_create(
-            name=row[ProdHeaders.color],
-            code=row[ProdHeaders.color_code],
-        )
+
         # add color to product
         prod.colors.add(color)
         for x in size_upc_range:
@@ -92,9 +141,15 @@ class ProductImporter(ImporterBase):
             if not size_value:
                 continue
 
+            # make sure the upc is valid
+            if not self._is_valid_upc(upc_value):
+                print('invalid upc value: {}'.format(upc_value))
+                continue
+
             size, size_created = Size.objects.get_or_create(
                 name=size_value
             )
+
             # if product was just created need to add sizes to it
             if prod_created:
                 prod.sizes.add(size)
@@ -102,10 +157,15 @@ class ProductImporter(ImporterBase):
             # create variants for this combo of size and colors
             Variant.objects.update_or_create(
                 upc=upc_value,
-                product=prod,
-                color=color,
-                size=size,
+                defaults={
+                    'product': prod,
+                    'color': color,
+                    'size': size,
+                }
             )
+
+        # keep set of style numbers
+        self.styles_imported.add(style_number)
 
     def _date_or_none_from_string(self, date_string):
         try:
@@ -120,8 +180,28 @@ class InventoryImporter(ImporterBase):
         super().__init__()
 
     def process_row(self, row):
-        upc = int(row['UPC'])
-        inventory = int(row['QUANTITY'])
+        data_error = False
+
+        # get data from row
+        upc_raw = row['UPC']
+        try:
+            upc = int(upc_raw)
+        except ValueError:
+            data_error = True
+            print('invalid upc: {}'.format(upc_raw))
+
+        inventory_raw = int(row['QUANTITY'])
+        try:
+            inventory = int(inventory_raw)
+        except ValueError:
+            data_error = True
+            print('invalid inventory: {}'.format(upc_raw))
+
+        # log or record errors
+        if data_error:
+            print('error in data: {}'.format(row))
+            return
+
         try:
             variant = Variant.objects.get(upc=upc)
         except Variant.DoesNotExist:
@@ -130,3 +210,4 @@ class InventoryImporter(ImporterBase):
             if variant.inventory != inventory:
                 variant.inventory = inventory
                 variant.save(update_fields=['inventory'])
+

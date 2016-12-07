@@ -7,9 +7,16 @@ class Color(models.Model):
     # name to display on the website
     display_name = models.CharField(max_length=64)
 
+    def __str__(self):
+        return '{} - {}'.format(self.name, self.code)
+
 class Size(models.Model):
     name = models.CharField(max_length=8)
     display_name = models.CharField(max_length=32)
+
+    def __str__(self):
+        return str(self.name)
+
 
 class Product(models.Model):
     style_number = models.CharField(max_length=64, unique=True)
@@ -38,6 +45,13 @@ class Product(models.Model):
 
     def __str__(self):
         return ''
+
+    def in_stock(self):
+        for variant in self.variant_set.all():
+            if variant.inventory > 0:
+                return True
+        return False
+
 
 class Variant(models.Model):
     upc = models.BigIntegerField(unique=True)

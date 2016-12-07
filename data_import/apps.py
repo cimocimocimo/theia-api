@@ -5,6 +5,7 @@ class DataImportConfig(AppConfig):
     name = 'data_import'
 
     def ready(self):
+        # register webhook
         from .interfaces import DropboxInterface
         register_webhook(
             'dropbox-updated',

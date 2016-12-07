@@ -10,19 +10,19 @@ test_dir_path = os.path.dirname(os.path.realpath(__file__))
 
 class TestProductInventoryImporters(TestCase):
 
-    product_csv_file_path = os.path.join(test_dir_path, '20161012070014.SHPFY_ProductExtract_Theia.CSV')
-    inventory_csv_file_path = os.path.join(test_dir_path, '20161012070015.SHPFY_InventoryExtract_Theia.CSV')
+    product_csv_file_path = os.path.join(test_dir_path, 'products-test-data.csv')
+    inventory_csv_file_path = os.path.join(test_dir_path, 'inventory-test-data.csv')
 
     @classmethod
     def setUpClass(cls):
         # open the product data csv and store the text.
-        f = open(cls.product_csv_file_path, encoding='cp1252')
+        f = open(cls.product_csv_file_path)
         cls.product_csv_text = f.read()
 
         f = open(cls.inventory_csv_file_path, encoding='cp1252')
         cls.inventory_csv_text = f.read()
 
-        with open(cls.product_csv_file_path, encoding='cp1252') as prodcsv:
+        with open(cls.product_csv_file_path) as prodcsv:
             test_reader = csv.DictReader(prodcsv)
             style_numbers = set()
             for row in test_reader:
@@ -50,6 +50,7 @@ class TestProductInventoryImporters(TestCase):
 
         inv_importer = InventoryImporter()
         inv_importer.import_data(self.inventory_csv_text)
+
         print('Numb missing UPCs: {}'.format(inv_importer.missing_upcs))
         self.assertIsInstance(inv_importer.csv, csv.DictReader)
         self.assertEqual('UPC', inv_importer.csv.fieldnames[0])
