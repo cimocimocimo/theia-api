@@ -22,10 +22,10 @@ class Product(models.Model):
     description = models.TextField()
     archived = models.BooleanField()
     brand_id = models.CharField(max_length=64)
-    wholesale_usd = models.PositiveIntegerField()
-    retail_usd = models.PositiveIntegerField()
-    wholesale_cad = models.PositiveIntegerField()
-    retail_cad = models.PositiveIntegerField()
+    wholesale_usd = models.DecimalField(max_digits=9, decimal_places=2)
+    retail_usd = models.DecimalField(max_digits=9, decimal_places=2)
+    wholesale_cad = models.DecimalField(max_digits=9, decimal_places=2)
+    retail_cad = models.DecimalField(max_digits=9, decimal_places=2)
 
     # TODO: create a category hierarchy, using mptt or treebeard this could be
     # used to create the evening wear and bridal parent categories then have
