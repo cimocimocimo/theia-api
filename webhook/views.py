@@ -4,6 +4,9 @@ from django.views.generic import View
 from django.views.decorators.csrf import csrf_exempt
 from django.utils.decorators import method_decorator
 
+# TODO: Can I use this to register the webhooks from other apps?
+# http://curiosityhealsthecat.blogspot.ca/2013/07/using-python-decorators-for-registering_8614.html
+
 class WebhookView(View):
     webhooks = dict()
 

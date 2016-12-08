@@ -1,63 +1,12 @@
-from django.http import HttpResponse, HttpResponseBadRequest, HttpResponseForbidden
 from django.conf import settings
-from hashlib import sha256
-import json, hmac, os, logging
-
-from pprint import pprint
+import os, logging
 
 log = logging.getLogger('django')
 
 class DropboxInterface:
-    import dropbox
-
     def __init__(self):
-        self.dropbox_client = self.dropbox.Dropbox(settings.DROPBOX_TOKEN)
-
-    @classmethod
-    def verify_webhook(cls, request):
-        challenge = request.GET.get('challenge')
-        if challenge is not None:
-            return HttpResponse(challenge)
-        else:
-            return HttpResponseBadRequest('Missing "challenge" parameter.')
-
-    @classmethod
-    def process_notification(cls, request):
-        # Make sure this is a valid request from Dropbox
-        if not settings.DEBUG and not cls.is_request_valid(request):
-            return HttpResponseForbidden()
-
-        try:
-            raw_body = request.body.decode('utf-8')
-        except UnicodeError:
-            return HttpResponseBadRequest()
-
-        try:
-            data = json.loads(raw_body)
-        except ValueError:
-            return HttpResponseBadRequest()
-
-        # importing here prevents import errors. not sure why. - AC
-        from .tasks import start_dropbox_notification_tasks
-        start_dropbox_notification_tasks(data)
-
-        return HttpResponse('OK')
-
-    @classmethod
-    def is_request_valid(cls, request):
-        # HMAC verification
-        return hmac.compare_digest(
-            request.META['HTTP_X_DROPBOX_SIGNATURE'],
-            cls.generate_signature(request)
-        )
-
-    @classmethod
-    def generate_signature(cls, request):
-        return hmac.new(
-            settings.DROPBOX_APP_SECRET.encode('utf-8'),
-            request.body,
-            sha256
-        ).hexdigest()
+        from dropbox import Dropbox
+        self.dropbox_client = Dropbox(settings.DROPBOX_TOKEN)
 
     def upload_files(self, files, path='/'):
         for f in files:
@@ -81,6 +30,11 @@ class ShopifyInterface:
         self._get_products_from_shopify()
 
     def add_product(self, product):
+        # TODO: Should some of this be in it's own class? A class that
+        # encapsulates the logic that translates the csv data into our local
+        # models then the local models into the Shopify store. How about an
+        # exporter class? Do I even need another class that uses the importers
+        # and exporters and contains the celery tasks, like a controller?
         """
         Create a new Shopify product from local Product model.
 
@@ -99,7 +53,6 @@ class ShopifyInterface:
         )
         # save product to get the id and the initial variant
         created = shop_product.save()
-        pprint(shop_product.variants[0].to_dict())
         # add options
         shop_product.options = [
             {
@@ -137,14 +90,10 @@ class ShopifyInterface:
         if not created:
             log.debug(shop_product.errors.errors)
 
-        pprint(shop_product.to_dict())
-
         return (created, shop_product)
 
     def update_variant(self, variant):
         """update shopify variant from local variant"""
-
-        
         pass
 
     def get_products(self):

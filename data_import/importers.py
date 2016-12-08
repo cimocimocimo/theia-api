@@ -1,4 +1,3 @@
-from enum import Enum
 from .models import Color, Size, Product, Variant
 import csv
 from datetime import datetime
