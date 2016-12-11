@@ -1,7 +1,11 @@
 from django.http import HttpResponse, HttpResponseBadRequest, HttpResponseForbidden
 from django.conf import settings
 from hashlib import sha256
-import hmac, json
+import hmac, json, logging
+
+from .controllers import Controller
+
+log = logging.getLogger('django')
 
 # Dropbox webhook verification
 def verify_webhook(request):
@@ -13,6 +17,8 @@ def verify_webhook(request):
 
 # responds to the dropbox webhook request
 def process_notification(request):
+    log.debug('process_notification view')
+
     # Make sure this is a valid request from Dropbox
     if not settings.DEBUG and not is_request_valid(request):
         return HttpResponseForbidden()
@@ -27,9 +33,11 @@ def process_notification(request):
     except ValueError:
         return HttpResponseBadRequest()
 
+    Controller().handle_notification(data)
+
     # importing here prevents import errors. not sure why. - AC
-    from .tasks import start_dropbox_notification_tasks
-    start_dropbox_notification_tasks(data)
+    # from .tasks import start_dropbox_notification_tasks
+    # start_dropbox_notification_tasks(data)
 
     return HttpResponse('OK')
 

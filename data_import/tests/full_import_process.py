@@ -37,13 +37,19 @@ Things to test:
   - scans shopify product variants by sku
   - 
 """
-@override_settings(DROPBOX_EXPORT_FOLDER='/test')
+test_folder = '/test'
+@override_settings(DROPBOX_EXPORT_FOLDER=test_folder)
 class TestImportProcess(SimpleTestCase):
 
     @classmethod
     def setUpClass(cls):
-        cls.shopify_interface = ShopifyInterface()
+        # cls.shopify_interface = ShopifyInterface()
         cls.dropbox_interface = DropboxInterface()
+        # delete test files before test run
+        try:
+            cls.dropbox_interface.delete_file(test_folder)
+        except:
+            pass
         super().setUpClass()
 
     def test_import(self):
@@ -52,9 +58,6 @@ class TestImportProcess(SimpleTestCase):
             [product_csv_file, inventory_csv_file],
             settings.DROPBOX_EXPORT_FOLDER)
 
-        sleep(120)
-
     @classmethod
     def tearDownClass(cls):
-        cls.dropbox_interface.delete_file(settings.DROPBOX_EXPORT_FOLDER)
         pass
