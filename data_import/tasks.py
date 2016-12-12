@@ -1,70 +1,12 @@
-"""
-Initial import should get all the files from dropbox
-
-subsequent requests should only get the changed files
-
-keep a cache of the last imported files - why?
-
-run the Product imports first, then run the inventory imports
-
-how do the shopify products start to fit in with all this?
-
-need to get a list of all the product ids 
-"""
-
 from celery import shared_task, chain
-
 from django.conf import settings
-import logging, dropbox, redis, json, re, csv
+import logging, re
+
 from .importers import ProductImporter, InventoryImporter
 from .interfaces import DropboxInterface, ShopifyInterface
 from .models import Product, Variant
 
 log = logging.getLogger('django')
-
-@shared_task
-def import_product_data(id):
-    dropbox_interface = DropboxInterface()
-    product_importer = ProductImporter()
-    text = dropbox_interface.get_file_contents(id)
-    log.debug('-------------------- importing product data ------------------')
-    product_importer.import_data(text)
-
-@shared_task
-def import_inventory_data(id):
-    dropbox_interface = DropboxInterface()
-    inventory_importer = InventoryImporter()
-    text = dropbox_interface.get_file_contents(id)
-    log.debug('-------------------- importing inventory data ----------------')
-    inventory_importer.import_data(text)
-
-@shared_task
-def update_shop_inventory(company):
-    log.debug(company)
-
-    shopify_interface = ShopifyInterface()
-    # update the products on shopify
-
-    # get all the shopify products
-    shopify_products = shopify_interface.get_products()
-    for shop_product in shopify_products:
-        log.debug(shop_product.handle)
-        for shop_variant in shop_product.variants:
-            log.debug(shop_variant.to_dict())
-            # get the associated variant from the DB
-            # local_variant = Variant.objects.get()
-
-            # # going to need to populate the barcodes on first run.
-            # # TODO: remove this once the product import
-            # if shop_variant.barcode == None:
-            #     # get the local_variant by sku
-            #     local_variant = Variant.objects.get(sku=shop_variant.sku)
-            #     # update shop_variant with the UPC of the local_products
-            #     # shopify_interface()local_variant.upc
-            # else:
-            #     local_variant = Variant.objects.get(upc=shop_variant.barcode)
-
-
 
 @shared_task
 def get_files_to_import(account):
@@ -83,6 +25,7 @@ def get_files_to_import(account):
 
     # TODO: Should this be factored into the importer? Should the importer
     # figure out what files it should be importing?
+    #
     # This filters the FileMetaData entries to see if they are valid import
     # files and if they are creates a list of them. An instance of
     # ImportFileMetaSet is created with the list. The instance then filters the
@@ -108,10 +51,62 @@ def get_files_to_import(account):
         # call celery chain with immutable signatures so the results are
         # ignored.
         chain(
-            import_product_data.si(product_id),
-            import_inventory_data.si(inventory_id),
+            import_data.si(product_id, inventory_id),
             update_shop_inventory.si(company))()
 
+@shared_task
+def import_data(prod_id, inv_id):
+    # TODO: I think I could create tasks to download the file contents for both
+    # files simultaneously. Use a chord to run the two download tasks then an
+    # import task to import the two files sequentially. 
+    prod_text = DropboxInterface().get_file_contents(prod_id)
+    log.debug('-------------------- importing product data ------------------')
+    ProductImporter().import_data(prod_text)
+
+    inv_text = DropboxInterface().get_file_contents(inv_id)
+    log.debug('-------------------- importing inventory data ----------------')
+    InventoryImporter().import_data(inv_text)
+
+# @shared_task
+# def update_shop_products(company):
+#     log.debug('------- exporting inventory to shopify -------')
+#     log.debug(company)
+
+#     shopify_interface = ShopifyInterface()
+
+#     for local_product in Products.objects.all():
+        
+@shared_task
+def update_shop_inventory(company):
+    log.debug('------- exporting inventory to shopify -------')
+    log.debug(company)
+
+    shopify_interface = ShopifyInterface()
+    # update the products on shopify
+
+    # get all the shopify products
+    shopify_products = shopify_interface.get_products()
+    for shop_product in shopify_products:
+        log.debug(shop_product.handle)
+        for shop_variant in shop_product.variants:
+            log.debug(shop_variant.title)
+            log.debug(shop_variant.to_dict())
+
+            # going to need to populate the barcodes on first run.
+            # TODO: remove this once the product import is populating the store
+            # with products with barcodes from the beginning
+            if shop_variant.barcode == None:
+                # get the local_variant by sku
+                log.debug(shop_variant.sku)
+                local_variant = Variant.objects.get_by_sku(shop_variant.sku)
+                # update shop_variant with the UPC of the local_products
+                # shopify_interface()local_variant.upc
+            else:
+                local_variant = Variant.objects.get(upc=shop_variant.barcode)
+
+            log.debug(local_variant)
+            shop_variant.inventory_quantity = local_variant.inventory
+            shop_variant.save()
 
 class ImportFileMeta:
     type_company_regex = r'^\d{14}\.SHPFY_([A-Za-z]+)Extract_([A-Za-z]+)\.CSV$'
