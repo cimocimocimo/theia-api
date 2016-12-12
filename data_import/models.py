@@ -22,6 +22,13 @@ class Color(models.Model):
     def __str__(self):
         return '{} - {}'.format(self.name, self.code)
 
+    def save(self, *args, **kwargs):
+        # create the corrected color name
+        self._display_name = correct_color_name(self.name.lower())
+        print(self.name)
+        print(self._display_name)
+        super().save(*args, **kwargs)
+
 class Size(models.Model):
     name = models.CharField(max_length=8)
     display_name = models.CharField(max_length=32)
@@ -118,10 +125,10 @@ def uncorrect_color_name(color):
 # fix color name abbreviations
 def correct_color_name(color):
     if color in color_abbreviations:
-        uncorrected_color = color_abbreviations[color].upper()
-        return uncorrected_color
+        corrected_color = color_abbreviations[color]
+        return corrected_color
     else:
-        return color.upper()
+        return color
 
 
 

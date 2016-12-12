@@ -2,7 +2,7 @@ import logging
 from celery import chain, group
 
 from .interfaces import DropboxInterface
-from .tasks import get_files_to_import
+from .tasks import get_files_to_import, import_data, update_shop_inventory
 
 log = logging.getLogger('django')
 
@@ -13,7 +13,6 @@ class Controller:
 
     def __init__(self):
         """Init Controller"""
-        log = logging.getLogger('django')
         log.debug('Controller initialized:')
         log.debug(self)
 
@@ -28,13 +27,18 @@ class Controller:
 
         # start task process for each account
         for account in accounts:
-            get_files_to_import.delay(account)
+            chain(
+                get_files_to_import.s(account),
+                import_data.s(),
+                update_shop_inventory.si()
+            )()
 
-    def get_import_file_set(self, cursor, account):
-        dropbox_interface = DropboxInterface()
+    def import_latest_data(self, companies):
+        chain(
+            get_files_to_import.s(),
+            import_data.s(import_filter=companies),
+        )
 
-        # get the 
-        pass
 
 
 

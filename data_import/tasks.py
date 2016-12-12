@@ -9,11 +9,12 @@ from .models import Product, Variant
 log = logging.getLogger('django')
 
 @shared_task
-def get_files_to_import(account):
+def get_files_to_import(account=None):
 
     dropbox_interface = DropboxInterface()
-    entries = dropbox_interface.list_files(account,
-                                           settings.DROPBOX_EXPORT_FOLDER)
+    entries = dropbox_interface.list_files(
+        account=account,
+        path=settings.DROPBOX_EXPORT_FOLDER)
 
     if entries == None:
         return False
@@ -39,47 +40,49 @@ def get_files_to_import(account):
 
     # for each company, import the most recent product export, then import the
     # inventory file.
+    company_prod_inv_ids = dict()
     for company, company_data in import_files.items():
         log.debug(company_data)
         try:
             product_id = company_data['Product'].id
             inventory_id = company_data['Inventory'].id
+            company_prod_inv_ids[company] = (product_id, inventory_id)
         except KeyError as e:
-            log.debug(e)
-            return False
+            log.warning(e)
+            return None
 
         # call celery chain with immutable signatures so the results are
         # ignored.
-        chain(
-            import_data.si(product_id, inventory_id),
-            update_shop_inventory.si(company))()
+        # chain(
+        #     import_data.si(product_id, inventory_id),
+        #     update_shop_inventory.si(company))()
+
+    return company_prod_inv_ids
 
 @shared_task
-def import_data(prod_id, inv_id):
-    # TODO: I think I could create tasks to download the file contents for both
-    # files simultaneously. Use a chord to run the two download tasks then an
-    # import task to import the two files sequentially. 
-    prod_text = DropboxInterface().get_file_contents(prod_id)
-    log.debug('-------------------- importing product data ------------------')
-    ProductImporter().import_data(prod_text)
+def import_data(company_prod_inv_ids, import_filter=None):
 
-    inv_text = DropboxInterface().get_file_contents(inv_id)
-    log.debug('-------------------- importing inventory data ----------------')
-    InventoryImporter().import_data(inv_text)
+    for company, prod_inv_ids in company_prod_inv_ids.items():
+        # if import_filter was passed then skip companies not in the import filter
+        if import_filter and company not in import_filter:
+            continue
 
-# @shared_task
-# def update_shop_products(company):
-#     log.debug('------- exporting inventory to shopify -------')
-#     log.debug(company)
+        prod_id, inv_id = prod_inv_ids
 
-#     shopify_interface = ShopifyInterface()
+        # TODO: I think I could create tasks to download the file contents for both
+        # files simultaneously. Use a chord to run the two download tasks then an
+        # import task to import the two files sequentially. 
+        prod_text = DropboxInterface().get_file_contents(prod_id)
+        log.debug('-------------------- importing product data ------------------')
+        ProductImporter().import_data(prod_text)
 
-#     for local_product in Products.objects.all():
-        
+        inv_text = DropboxInterface().get_file_contents(inv_id)
+        log.debug('-------------------- importing inventory data ----------------')
+        InventoryImporter().import_data(inv_text)
+
 @shared_task
-def update_shop_inventory(company):
+def update_shop_inventory():
     log.debug('------- exporting inventory to shopify -------')
-    log.debug(company)
 
     shopify_interface = ShopifyInterface()
     # update the products on shopify

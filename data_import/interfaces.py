@@ -69,7 +69,8 @@ class DropboxInterface:
                 log.debug(e)
                 return None
 
-        self._save_cursor_for_account(account, cursor)
+        if account != None and cursor != None:
+            self._save_cursor_for_account(account, cursor)
 
         if entries == None:
             return None
