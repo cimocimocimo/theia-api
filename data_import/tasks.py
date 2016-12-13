@@ -1,12 +1,40 @@
 from celery import shared_task, chain
+from celery.five import monotonic
+from celery.utils.log import get_task_logger
+from contextlib import contextmanager
+from django.core.cache import cache
+from hashlib import md5
 from django.conf import settings
 import logging, re
+
+from time import sleep
 
 from .importers import ProductImporter, InventoryImporter
 from .interfaces import DropboxInterface, ShopifyInterface
 from .models import Product, Variant
 
 log = logging.getLogger('django')
+
+LOCK_EXPIRE = 60 * 10 # Lock expires in 10 minutes
+
+@contextmanager
+def task_lock(lock_id, oid):
+    log.debug('Getting lock: lock_id: {}, oid: {}'.format(lock_id, oid))
+
+    timeout_at = monotonic() + LOCK_EXPIRE - 3
+    status = cache.add(lock_id, oid, LOCK_EXPIRE)
+
+    try:
+        yield status
+    finally:
+        # memcache delete is very slow, but we have to use it to take
+        # advantage of using add() for atomic locking
+        if monotonic() < timeout_at:
+            # don't release the lock if we exceeded the timeout
+            # to lessen the chance of releasing an expired lock
+            # owned by someone else.
+            log.debug('Releasing lock_id: {}'.format(lock_id))
+            cache.delete(lock_id)
 
 @shared_task
 def get_files_to_import(account=None):
@@ -80,36 +108,66 @@ def import_data(company_prod_inv_ids, import_filter=None):
         log.debug('-------------------- importing inventory data ----------------')
         InventoryImporter().import_data(inv_text)
 
-@shared_task
-def update_shop_inventory():
-    log.debug('------- exporting inventory to shopify -------')
+@shared_task(bind=True)
+def update_shop_inventory(self, companies=None):
 
-    shopify_interface = ShopifyInterface()
-    # update the products on shopify
+    # The cache key consists of the task name and the MD5 digest
+    # of the feed URL.
+    task_hexdigest = md5('update_shop_inventory'.encode('utf-8')).hexdigest()
+    lock_id = '{0}-lock-{1}'.format(self.name, task_hexdigest)
+    log.debug('Updating Shop Inventory:')
 
-    # get all the shopify products
-    shopify_products = shopify_interface.get_products()
-    for shop_product in shopify_products:
-        log.debug(shop_product.handle)
-        for shop_variant in shop_product.variants:
-            log.debug(shop_variant.title)
-            log.debug(shop_variant.to_dict())
+    with task_lock(lock_id, self.app.oid) as acquired:
+        if acquired:
 
-            # going to need to populate the barcodes on first run.
-            # TODO: remove this once the product import is populating the store
-            # with products with barcodes from the beginning
-            if shop_variant.barcode == None:
-                # get the local_variant by sku
-                log.debug(shop_variant.sku)
-                local_variant = Variant.objects.get_by_sku(shop_variant.sku)
-                # update shop_variant with the UPC of the local_products
-                # shopify_interface()local_variant.upc
-            else:
-                local_variant = Variant.objects.get(upc=shop_variant.barcode)
+            # TODO: Move this code into an exporter to clean this up.
 
-            log.debug(local_variant)
-            shop_variant.inventory_quantity = local_variant.inventory
-            shop_variant.save()
+            log.debug('------- exporting inventory to shopify -------')
+
+            shopify_interface = ShopifyInterface()
+            # update the products on shopify
+
+            # get all the shopify products
+            shopify_products = shopify_interface.get_products()
+
+            for shop_product in shopify_products:
+                log.debug(shop_product.handle)
+
+                for shop_variant in shop_product.variants:
+                    log.debug(shop_variant.title)
+                    log.debug(shop_variant.to_dict())
+
+                    # going to need to populate the barcodes on first run.
+                    # TODO: remove this once the product import is populating the store
+                    # with products with barcodes from the beginning
+                    if shop_variant.barcode == None:
+                        # get the local_variant by sku
+                        log.debug(shop_variant.sku)
+                        # local_variant = Variant.objects.get_by_sku(shop_variant.sku)
+                        # # update shop_variant with the UPC of the local_products
+                        # # shopify_interface()local_variant.upc
+                    else:
+                        try:
+                            local_variant = Variant.objects.get(upc=shop_variant.barcode)
+                        except Exception as e:
+                            log.debug('Could not get Variant wtih barcode: {}'.format(shop_variant.barcode))
+                            log.debug(e)
+                        else:
+                            log.debug(local_variant)
+                            shop_variant.inventory_quantity = local_variant.inventory
+                            shop_variant.save()
+                        finally:
+                            pass
+
+
+            log.debug('------- finished exporting inventory to shopify -------')
+
+        else:
+            log.debug(
+                'Shop inventory update job is already running in another worker')
+
+    return
+
 
 class ImportFileMeta:
     type_company_regex = r'^\d{14}\.SHPFY_([A-Za-z]+)Extract_([A-Za-z]+)\.CSV$'

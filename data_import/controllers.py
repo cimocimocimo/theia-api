@@ -33,13 +33,19 @@ class Controller:
                 update_shop_inventory.si()
             )()
 
-    def import_latest_data(self, companies):
+    def import_latest_data(self, companies=None):
         chain(
             get_files_to_import.s(),
             import_data.s(import_filter=companies),
         )
 
-
+    def export_data(self, companies=None):
+        log.debug('Controller().export_data(companies={})'.format(companies))
+        update_shop_inventory.delay(companies)
+        pass
+        
+    def full_import_export(self, companies=None):
+        pass
 
 
     """
