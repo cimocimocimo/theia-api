@@ -36,56 +36,40 @@ def task_lock(lock_id, oid):
             log.debug('Releasing lock_id: {}'.format(lock_id))
             cache.delete(lock_id)
 
-@shared_task
+@shared_task(bind=True, default_retry_delay=60, max_retries=5)
 def get_files_to_import(account=None):
 
     dropbox_interface = DropboxInterface()
-    entries = dropbox_interface.list_files(
-        account=account,
-        path=settings.DROPBOX_EXPORT_FOLDER)
+    try:
+        entries = dropbox_interface.list_files(
+            account=account,
+            path=settings.DROPBOX_EXPORT_FOLDER)
 
-    if entries == None:
-        return False
+    except Exception as e:
+        log.debug(e)
+        self.retry(e)
 
-    log.debug(entries)
+    else:
+        if entries == None:
+            return False
 
-    # sort by server modified time, newest first
-    entries.sort(key=lambda x: x.server_modified, reverse=True)
+        log.debug(entries)
 
-    # TODO: Should this be factored into the importer? Should the importer
-    # figure out what files it should be importing?
-    #
-    # This filters the FileMetaData entries to see if they are valid import
-    # files and if they are creates a list of them. An instance of
-    # ImportFileMetaSet is created with the list. The instance then filters the
-    # files down and returns the import set with the 
-    import_files = ImportFileMetaSet([
-            ImportFileMeta(e) for e in entries
-            if ImportFileMeta.is_import_filemeta(e)
-        ]).get_import_files()
+        # TODO: Should this be factored into the importer? Should the importer
+        # figure out what files it should be importing?
+        #
+        # This filters the FileMetaData entries to see if they are valid import
+        # files and if they are creates a list of them. An instance of
+        # ImportFileMetaSet is created with the list. The instance then filters the
+        # files down and returns the import set with the 
+        import_file_ids = ImportFileMetaSet([
+                ImportFileMeta(e) for e in entries
+                if ImportFileMeta.is_import_filemeta(e)
+            ]).get_import_file_ids()
 
-    log.debug(import_files)
+        log.debug(import_file_ids)
 
-    # for each company, import the most recent product export, then import the
-    # inventory file.
-    company_prod_inv_ids = dict()
-    for company, company_data in import_files.items():
-        log.debug(company_data)
-        try:
-            product_id = company_data['Product'].id
-            inventory_id = company_data['Inventory'].id
-            company_prod_inv_ids[company] = (product_id, inventory_id)
-        except KeyError as e:
-            log.warning(e)
-            return None
-
-        # call celery chain with immutable signatures so the results are
-        # ignored.
-        # chain(
-        #     import_data.si(product_id, inventory_id),
-        #     update_shop_inventory.si(company))()
-
-    return company_prod_inv_ids
+        return import_file_ids
 
 @shared_task
 def import_data(company_prod_inv_ids, import_filter=None):
@@ -202,6 +186,10 @@ class ImportFileMeta:
                     settings.DROPBOX_EXPORT_FOLDER))
 
 class ImportFileMetaSet:
+    # Export type keys
+    PRODUCT = 'Product'
+    INVENTORY = 'Inventory'
+
     def __init__(self, import_files):
         self.files = import_files
         self.company_set = set(
@@ -209,20 +197,35 @@ class ImportFileMetaSet:
         self.export_type_set = set(
             f.export_type for f in self.files)
 
-    def get_import_files(self):
+    def get_filtered_by_company_type(self, company, export_type):
+        return [
+            f for f in self.files
+            if f.company == company and
+            f.export_type == export_type
+        ]
+
+    def get_most_recent_file_from_list(self, file_list):
+        if len(file_list):
+            # sort by server modified time, newest first
+            file_list.sort(key=lambda x: x.filemeta.server_modified,
+                            reverse=True)
+            return file_list[0]
+        else:
+            return None
+
+    def get_prod_inv_ids_by_company(self, company):
+        prod = self.get_most_recent_file_from_list(
+            self.get_filtered_by_company_type(company, self.PRODUCT))
+
+        inv = self.get_most_recent_file_from_list(
+            self.get_filtered_by_company_type(company, self.INVENTORY))
+
+        return (prod.id, inv.id)
+
+    def get_import_file_ids(self):
         """get the import files by company"""
-        # returns True if elem has both strings present in filename
-        filter_fn = lambda x: export_type == x.export_type and company == x.company
 
-        files_by_company = dict()
-        for company in self.company_set:
-            files_by_company[company] = dict()
-            for export_type in self.export_type_set:
-
-                # get the first element of filtered list
-                files_by_company[company][export_type] = next(
-                    filter(
-                        filter_fn,
-                        self.files))
-
-        return files_by_company
+        return {
+            company: self.get_prod_inv_ids_by_company(company)
+            for company in self.company_set
+        }
