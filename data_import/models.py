@@ -63,7 +63,7 @@ class Product(models.Model):
     sizes = models.ManyToManyField(Size)
 
     def __str__(self):
-        return ''
+        return '{} - {} - {}'.format(self.style_number, self.season, self.name)
 
     def in_stock(self):
         for variant in self.variant_set.all():
