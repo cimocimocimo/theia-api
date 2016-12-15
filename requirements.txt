@@ -10,6 +10,7 @@ psycopg2==2.6.2
 pyactiveresource==2.1.2
 pytz==2016.7
 PyYAML==3.12
+ratelimit==1.1.0
 redis==2.10.5
 requests==2.12.1
 ShopifyAPI==2.1.8

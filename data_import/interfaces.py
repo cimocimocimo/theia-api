@@ -1,4 +1,5 @@
 from django.conf import settings
+from ratelimit import rate_limited
 import os, logging
 
 log = logging.getLogger('django')
@@ -211,9 +212,22 @@ class ShopifyInterface:
 
         return (created, shop_product)
 
-    def update_variant(self, variant):
+    @rate_limited(0.5)
+    def update_shop_variant_inventory(self, shop_variant):
         """update shopify variant from local variant"""
-        pass
+        try:
+            local_variant = Variant.objects.get(upc=shop_variant.barcode)
+        except Exception as e:
+            log.debug('Could not get Variant wtih barcode: {}'.format(shop_variant.barcode))
+            log.debug(e)
+        else:
+            log.debug(local_variant)
+            shop_variant.inventory_quantity = local_variant.inventory
+            try:
+                shop_variant.save()
+            except Exception as e:
+                log.warning('Unable to update varaint')
+                log.warning(e)
 
     def get_products(self):
         if not self.has_fetched_products:

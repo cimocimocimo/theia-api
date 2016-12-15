@@ -189,18 +189,7 @@ def update_shop_inventory(self, companies=None):
                         # # update shop_variant with the UPC of the local_products
                         # # shopify_interface()local_variant.upc
                     else:
-                        try:
-                            local_variant = Variant.objects.get(upc=shop_variant.barcode)
-                        except Exception as e:
-                            log.debug('Could not get Variant wtih barcode: {}'.format(shop_variant.barcode))
-                            log.debug(e)
-                        else:
-                            log.debug(local_variant)
-                            shop_variant.inventory_quantity = local_variant.inventory
-                            shop_variant.save()
-                        finally:
-                            pass
-
+                        shopify_interface.update_shop_variant_inventory(shop_variant)
 
             log.debug('------- finished exporting inventory to shopify -------')
 
