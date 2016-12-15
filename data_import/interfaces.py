@@ -109,9 +109,11 @@ class DropboxInterface:
         entries = []
         has_more = True
         while has_more:
+            log.debug('getting another result page')
             log.debug(args)
             log.debug(kwargs)
             result = result_cb(*args, **kwargs)
+            log.debug(result)
             has_more = result.has_more
             entries.extend(result.entries)
 
