@@ -11,9 +11,9 @@ test_dir_path = os.path.dirname(os.path.realpath(__file__))
 class TestProductInventoryImporters(TestCase):
 
     product_csv_file_path = os.path.join(test_dir_path,
-                                         '20161211190028.SHPFY_ProductExtract_Theia.CSV')
+                                         '00000000000000.SHPFY_ProductExtract_Theia.CSV')
     inventory_csv_file_path = os.path.join(test_dir_path,
-                                           '20161211190032.SHPFY_InventoryExtract_Theia.CSV')
+                                           '00000000000000.SHPFY_InventoryExtract_Theia.CSV')
 
     @classmethod
     def setUpClass(cls):
