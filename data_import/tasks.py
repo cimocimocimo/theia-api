@@ -92,6 +92,9 @@ def get_files_to_import(self, account=None):
              ignore_result=True, time_limit=60*30)
 def import_data(self, company_prod_inv_ids, import_filter=None):
 
+    # DEBUG only import Theia products for now.
+    import_filter = ['Theia']
+
     log.debug(
         'import_data(company_prod_inv_ids={}, import_filter={})'.format(
             company_prod_inv_ids, import_filter))

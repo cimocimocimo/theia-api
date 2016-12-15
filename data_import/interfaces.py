@@ -214,8 +214,10 @@ class ShopifyInterface:
 
         return (created, shop_product)
 
-    @rate_limited(0.5)
     def update_shop_variant_inventory(self, shop_variant):
+        log.debug(
+            'ShopifyInterface().update_shop_variant_inventory(shop_variant={})'
+            .format(shop_variant))
         """update shopify variant from local variant"""
         try:
             local_variant = Variant.objects.get(upc=shop_variant.barcode)
@@ -223,13 +225,19 @@ class ShopifyInterface:
             log.debug('Could not get Variant wtih barcode: {}'.format(shop_variant.barcode))
             log.debug(e)
         else:
-            log.debug(local_variant)
+            log.debug('local_variant={}'.format(local_variant))
             shop_variant.inventory_quantity = local_variant.inventory
-            try:
-                shop_variant.save()
-            except Exception as e:
-                log.warning('Unable to update varaint')
-                log.warning(e)
+            self._update_shop_variant(shop_variant)
+
+    @rate_limited(0.5)
+    def _update_shop_variant(self, shop_variant):
+        log.debug('ShopifyInterface()._update_shop_variant(shop_variant={})'
+                  .format(shop_variant))
+        try:
+            shop_variant.save()
+        except Exception as e:
+            log.warning('Unable to update variant')
+            log.warning(e)
 
     def get_products(self):
         if not self.has_fetched_products:

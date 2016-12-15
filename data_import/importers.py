@@ -1,6 +1,9 @@
 from .models import Color, Size, Product, Variant
-import csv
+import csv, logging
 from datetime import datetime
+from decimal import *
+
+log = logging.getLogger('django')
 
 """
 These import the Product and Inventory CSV files
@@ -60,6 +63,13 @@ class ImporterBase:
         else:
             return False
 
+    def make_decimal(self, value):
+        try:
+            return Decimal(str(value))
+        except Exception as e:
+            log.warning('Got exception converting "{}" to Decimal.'
+                      .format(value))
+            log.exception(e)
 
     def process_row(self, row):
         pass
@@ -83,10 +93,12 @@ class ProductImporter(ImporterBase):
         description = row[ProdHeaders.description]
         archived = (True if row[ProdHeaders.archived] == 'Y' else False)
         brand_id = row[ProdHeaders.brand_id]
-        wholesale_usd = row[ProdHeaders.wholesale_usd]
-        retail_usd = row[ProdHeaders.retail_usd]
-        wholesale_cad = row[ProdHeaders.wholesale_cad]
-        retail_cad = row[ProdHeaders.retail_cad]
+
+        wholesale_usd = self.make_decimal(row[ProdHeaders.wholesale_usd])
+        retail_usd = self.make_decimal(row[ProdHeaders.retail_usd])
+        wholesale_cad = self.make_decimal(row[ProdHeaders.wholesale_cad])
+        retail_cad = self.make_decimal(row[ProdHeaders.retail_cad])
+
         category = row[ProdHeaders.category]
 
         # If this product was in the DB already but it's the first time we've
@@ -142,7 +154,8 @@ class ProductImporter(ImporterBase):
 
             # make sure the upc is valid
             if not self._is_valid_upc(upc_value):
-                print('invalid upc value: {}'.format(upc_value))
+                log.warning('invalid product upc value: {} for style: {}'
+                            .format(upc_value, style_number))
                 continue
 
             size, size_created = Size.objects.get_or_create(
@@ -169,7 +182,11 @@ class ProductImporter(ImporterBase):
     def _date_or_none_from_string(self, date_string):
         try:
             return datetime.strptime(date_string, self.date_format)
-        except ValueError:
+        except ValueError as e:
+            log.warning(
+                'ValueError while converting date_string: {} to datetime'
+                .format(date_string))
+            log.exception(e)
             return None
 
 class InventoryImporter(ImporterBase):
@@ -187,23 +204,24 @@ class InventoryImporter(ImporterBase):
             upc = int(upc_raw)
         except ValueError:
             data_error = True
-            print('invalid upc: {}'.format(upc_raw))
+            log.warning('invalid inventory upc: {}'.format(upc_raw))
 
         inventory_raw = int(row['QUANTITY'])
         try:
             inventory = int(inventory_raw)
         except ValueError:
             data_error = True
-            print('invalid inventory: {}'.format(upc_raw))
+            log.warning('invalid inventory quantity: {}'.format(upc_raw))
 
         # log or record errors
         if data_error:
-            print('error in data: {}'.format(row))
+            log.error('error in inventory data: {}'.format(row))
             return
 
         try:
             variant = Variant.objects.get(upc=upc)
         except Variant.DoesNotExist:
+            log.error('Inventory UPC: {} does not exist'.format(upc))
             self.missing_upcs += 1
         else:
             if variant.inventory != inventory:
