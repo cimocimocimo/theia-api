@@ -55,20 +55,14 @@ class DropboxInterface:
 
         # first try continue listing the folder. If the cursor is invalid or
         # None then we get an exception and just list the full folder.
+
         try:
             entries, cursor = self._get_result_entries(
-                self.dropbox_client.files_list_folder_continue,
-                cursor=cursor)
+                cursor, path=path, recursive=True)
+
         except Exception as e:
             log.debug(e)
-            try:
-                entries, cursor =  self._get_result_entries(
-                    self.dropbox_client.files_list_folder,
-                    path=path,
-                    recursive=True)
-            except Exception as e:
-                log.debug(e)
-                return None
+            return None
 
         if account != None and cursor != None:
             self._save_cursor_for_account(account, cursor)
@@ -103,26 +97,32 @@ class DropboxInterface:
             prefix=self.account_key_format.format(
                 account=account))
 
-    def _get_result_entries(self, result_cb, *args, **kwargs):
-        log.debug('calling _get_result_entries()')
+    def _get_result_entries(self, cursor=None, *args, **kwargs):
+        log.debug('calling _get_result_entries(cursor={}, args={}, kwargs={})'
+                  .format(cursor, args, kwargs))
 
         entries = []
         has_more = True
         while has_more:
-            log.debug('getting another result page')
-            log.debug(args)
-            log.debug(kwargs)
-            result = result_cb(*args, **kwargs)
-            log.debug(result)
-            has_more = result.has_more
+
+            if cursor is None:
+                result = self.dropbox_client.files_list_folder(*args, **kwargs)
+            else:
+                result = self.dropbox_client.files_list_folder_continue(cursor)
+
             entries.extend(result.entries)
+
+            log.debug(result)
+            cursor = result.cursor
+            has_more = result.has_more
 
         if len(entries) == 0:
             entries = None
 
+        log.debug('-------- entries -------')
         log.debug(entries)
 
-        return entries, result.cursor
+        return entries, cursor
 
     def _get_cursor_for_account(self, account):
         # get the cursor, returns None if not present
