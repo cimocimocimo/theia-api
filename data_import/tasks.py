@@ -36,70 +36,128 @@ def task_lock(lock_id, oid):
             log.debug('Releasing lock_id: {}'.format(lock_id))
             cache.delete(lock_id)
 
-@shared_task(bind=True, default_retry_delay=60, max_retries=5)
-def get_files_to_import(account=None):
+def get_task_lock_id(task_name, task_sig):
+    """
+    Get a formatted lock id string.
 
-    dropbox_interface = DropboxInterface()
-    try:
-        entries = dropbox_interface.list_files(
-            account=account,
-            path=settings.DROPBOX_EXPORT_FOLDER)
+    task_name: name of the task
+    task_sig: unique string built from the task arguments, should be identical
+    for each set of arguments to the task.
+    """
+    task_hexdigest = md5(task_sig.encode('utf-8')).hexdigest()
+    return '{0}-lock-{1}'.format(task_name, task_hexdigest)
 
-    except Exception as e:
-        log.debug(e)
-        self.retry(e)
+@shared_task(bind=True, default_retry_delay=60, max_retries=5, time_limit=60*10)
+def get_files_to_import(self, account=None):
+    log.debug('get_files_to_import(account={})'.format(account))
 
-    else:
-        if entries == None:
-            return False
+    lock_id = get_task_lock_id(self.name, str(account))
 
-        log.debug(entries)
+    with task_lock(lock_id, self.app.oid) as acquired:
+        if acquired:
 
-        # TODO: Should this be factored into the importer? Should the importer
-        # figure out what files it should be importing?
-        #
-        # This filters the FileMetaData entries to see if they are valid import
-        # files and if they are creates a list of them. An instance of
-        # ImportFileMetaSet is created with the list. The instance then filters the
-        # files down and returns the import set with the 
-        import_file_ids = ImportFileMetaSet([
-                ImportFileMeta(e) for e in entries
-                if ImportFileMeta.is_import_filemeta(e)
-            ]).get_import_file_ids()
+            dropbox_interface = DropboxInterface()
+            try:
+                entries = dropbox_interface.list_files(
+                    account=account,
+                    path=settings.DROPBOX_EXPORT_FOLDER)
 
-        log.debug(import_file_ids)
+            except Exception as e:
+                log.warning(e)
+                self.retry(e)
 
-        return import_file_ids
+            else:
+                if entries == None:
+                    log.warning('entries was None')
+                    return False
 
-@shared_task
-def import_data(company_prod_inv_ids, import_filter=None):
+                log.debug(entries)
 
-    for company, prod_inv_ids in company_prod_inv_ids.items():
-        # if import_filter was passed then skip companies not in the import filter
-        if import_filter and company not in import_filter:
-            continue
+                # This filters the FileMetaData entries to see if they are valid import
+                # files and if they are creates a list of them. An instance of
+                # ImportFileMetaSet is created with the list. The instance then filters the
+                # files down and returns the import set with the 
+                import_file_ids = ImportFileMetaSet([
+                        ImportFileMeta(e) for e in entries
+                        if ImportFileMeta.is_import_filemeta(e)
+                    ]).get_import_file_ids()
 
-        prod_id, inv_id = prod_inv_ids
+                log.debug(import_file_ids)
 
-        # TODO: I think I could create tasks to download the file contents for both
-        # files simultaneously. Use a chord to run the two download tasks then an
-        # import task to import the two files sequentially. 
-        prod_text = DropboxInterface().get_file_contents(prod_id)
-        log.debug('-------------------- importing product data ------------------')
-        ProductImporter().import_data(prod_text)
+                return import_file_ids
+        else:
+            log.debug('get_files_to_import() already running in another job.')
 
-        inv_text = DropboxInterface().get_file_contents(inv_id)
-        log.debug('-------------------- importing inventory data ----------------')
-        InventoryImporter().import_data(inv_text)
+@shared_task(bind=True, default_retry_delay=60, max_retries=5,
+             ignore_result=True, time_limit=60*30)
+def import_data(self, company_prod_inv_ids, import_filter=None):
+
+    log.debug(
+        'import_data(company_prod_inv_ids={}, import_filter={})'.format(
+            company_prod_inv_ids, import_filter))
+
+    if company_prod_inv_ids == False:
+        return
+
+    lock_id = get_task_lock_id(self.name, '{}-{}'.format(company_prod_inv_ids, import_filter))
+
+    with task_lock(lock_id, self.app.oid) as acquired:
+        if acquired:
+
+            # loop over the company data, and unpack the prod and inventory ids.
+            for company, (prod_id, inv_id) in company_prod_inv_ids.items():
+
+                # if import_filter was passed then skip companies not in the import filter
+                if import_filter and company not in import_filter:
+                    continue
+
+                log.debug('Importing data for company: {}'.format(company))
+
+                dropbox = DropboxInterface()
+
+                # TODO: I think I could create tasks to download the file contents for both
+                # files simultaneously. Use a chord to run the two download tasks then an
+                # import task to import the two files sequentially.
+                try:
+                    prod_text = dropbox.get_file_contents(prod_id)
+                except Exception as e:
+                    log.debug(e)
+                    self.retry(e)
+
+                try:
+                    inv_text = dropbox.get_file_contents(inv_id)
+                except Exception as e:
+                    log.debug(e)
+                    self.retry(e)
+
+                log.debug('Importing Product data for company: {}'.format(company))
+                try:
+                    ProductImporter().import_data(prod_text)
+                except Exception as e:
+                    log.debug(e)
+                    self.retry(e)
+                else:
+                    log.debug('Finished Product data import for company: {}'.format(company))
+
+                log.debug('Importing Inventory data for company: {}'.format(company))
+                try:
+                    InventoryImporter().import_data(inv_text)
+                except Exception as e:
+                    log.debug(e)
+                    self.retry(e)
+                else:
+                    log.debug('Finished Inventory data import for company: {}'.format(company))
+
+            log.debug('Finished import_data()')
+
+        else:
+            log.debug('import_data() already running in another job')
 
 @shared_task(bind=True)
 def update_shop_inventory(self, companies=None):
+    log.debug('update_shop_inventory(companies={})'.format(companies))
 
-    # The cache key consists of the task name and the MD5 digest
-    # of the feed URL.
-    task_hexdigest = md5('update_shop_inventory'.encode('utf-8')).hexdigest()
-    lock_id = '{0}-lock-{1}'.format(self.name, task_hexdigest)
-    log.debug('Updating Shop Inventory:')
+    lock_id = get_task_lock_id(self.name, str(companies))
 
     with task_lock(lock_id, self.app.oid) as acquired:
         if acquired:
@@ -149,8 +207,6 @@ def update_shop_inventory(self, companies=None):
         else:
             log.debug(
                 'Shop inventory update job is already running in another worker')
-
-    return
 
 
 class ImportFileMeta:
@@ -225,7 +281,11 @@ class ImportFileMetaSet:
     def get_import_file_ids(self):
         """get the import files by company"""
 
-        return {
-            company: self.get_prod_inv_ids_by_company(company)
-            for company in self.company_set
-        }
+        if len(self.files):
+            return {
+                company: self.get_prod_inv_ids_by_company(company)
+                for company in self.company_set
+            }
+        else:
+            return False
+
