@@ -89,7 +89,7 @@ def get_files_to_import(self, account=None):
             log.debug('get_files_to_import() already running in another job.')
 
 @shared_task(bind=True, default_retry_delay=60, max_retries=5,
-             ignore_result=True, time_limit=60*30)
+             ignore_result=True, time_limit=60*60) # time limit of 1 hour
 def import_data(self, company_prod_inv_ids, import_filter=None):
 
     # DEBUG only import Theia products for now.
@@ -173,26 +173,31 @@ def update_shop_inventory(self, companies=None):
             # update the products on shopify
 
             # get all the shopify products
-            shopify_products = shopify_interface.get_products()
+            shopify_variants = shopify_interface.get_variants()
 
-            for shop_product in shopify_products:
-                log.debug(shop_product.handle)
+            for shop_variant in shopify_variants:
+                log.debug(shop_variant.to_dict())
 
-                for shop_variant in shop_product.variants:
-                    log.debug(shop_variant.title)
-                    log.debug(shop_variant.to_dict())
-
-                    # going to need to populate the barcodes on first run.
-                    # TODO: remove this once the product import is populating the store
-                    # with products with barcodes from the beginning
-                    if shop_variant.barcode == None:
-                        # get the local_variant by sku
-                        log.debug(shop_variant.sku)
-                        # local_variant = Variant.objects.get_by_sku(shop_variant.sku)
-                        # # update shop_variant with the UPC of the local_products
-                        # # shopify_interface()local_variant.upc
+                # going to need to populate the barcodes on first run.
+                # TODO: remove this once the product import is populating the store
+                # with products with barcodes from the beginning
+                if shop_variant.barcode == None:
+                    # get the local_variant by sku
+                    log.debug('missing barcode for shop_varaint.sku: {}'.format(shop_variant.sku))
+                    # local_variant = Variant.objects.get_by_sku(shop_variant.sku)
+                    # # update shop_variant with the UPC of the local_products
+                    # # shopify_interface()local_variant.upc
+                else:
+                    try:
+                        local_variant = Variant.objects.get(upc=shop_variant.barcode)
+                    except Exception as e:
+                        log.debug('Could not get Variant wtih barcode: {}'
+                                  .format(shop_variant.barcode))
+                        log.debug(e)
                     else:
-                        shopify_interface.update_shop_variant_inventory(shop_variant)
+                        log.debug('local_variant={}'.format(local_variant))
+                        shopify_interface.update_shop_variant_inventory(
+                            shop_variant, local_variant)
 
             log.debug('------- finished exporting inventory to shopify -------')
 

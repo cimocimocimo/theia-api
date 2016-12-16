@@ -11,6 +11,7 @@ DEBUG = False
 ALLOWED_HOSTS = [
     'localhost',
     'api.theiacouture.com',
+    'theia-api-prod.us-east-1.elasticbeanstalk.com',
     'theia-api-production.us-east-1.elasticbeanstalk.com',]
 
 # Database

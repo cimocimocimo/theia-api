@@ -150,6 +150,7 @@ class ShopifyInterface:
         "setup connection to Shopify"
         self.shopify.ShopifyResource.set_site(settings.SHOPIFY_SHOP_URL)
         self._get_products_from_shopify()
+        self._get_variants_from_shopify()
 
     def add_product(self, product):
         # TODO: Should some of this be in it's own class? A class that
@@ -214,20 +215,13 @@ class ShopifyInterface:
 
         return (created, shop_product)
 
-    def update_shop_variant_inventory(self, shop_variant):
+    def update_shop_variant_inventory(self, shop_variant, local_variant):
         log.debug(
             'ShopifyInterface().update_shop_variant_inventory(shop_variant={})'
             .format(shop_variant))
         """update shopify variant from local variant"""
-        try:
-            local_variant = Variant.objects.get(upc=shop_variant.barcode)
-        except Exception as e:
-            log.debug('Could not get Variant wtih barcode: {}'.format(shop_variant.barcode))
-            log.debug(e)
-        else:
-            log.debug('local_variant={}'.format(local_variant))
-            shop_variant.inventory_quantity = local_variant.inventory
-            self._update_shop_variant(shop_variant)
+        shop_variant.inventory_quantity = local_variant.inventory
+        self._update_shop_variant(shop_variant)
 
     @rate_limited(0.5)
     def _update_shop_variant(self, shop_variant):
@@ -244,9 +238,18 @@ class ShopifyInterface:
             self._get_products_from_shopify()
         return self.products
 
+    def get_variants(self):
+        if not self.has_fetched_variants:
+            self._get_variants_from_shopify()
+        return self.variants
+
     def _get_products_from_shopify(self):
         self.products = self._get_all_paged(self.shopify.Product.find)
         self.has_fetched_products = True
+
+    def _get_variants_from_shopify(self):
+        self.variants = self._get_all_paged(self.shopify.Variant.find)
+        self.has_fetched_variants = True
 
     def _get_all_paged(self, page_cb, limit=250, page_numb=1):
         items = []
