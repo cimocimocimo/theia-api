@@ -42,3 +42,10 @@ CACHES['default']['LOCATION'] = REDIS_URL
 # Celery
 CELERY_BROKER_URL = REDIS_URL
 CELERY_RESULT_BACKEND = REDIS_URL
+
+# Shopify
+SHOPIFY_SHOP_URL = 'https://{}:{}@{}.myshopify.com/admin'.format(
+     os.environ['PROD_SHOPIFY_API_KEY'],
+     os.environ['PROD_SHOPIFY_PASSWORD'],
+     os.environ['PROD_SHOPIFY_SHOP_NAME'],
+)
