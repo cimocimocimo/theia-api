@@ -80,6 +80,8 @@ class ProductImporter(ImporterBase):
     styles_imported = set()
 
     def process_row(self, row):
+        log.debug('ProductImporter().process_row(row={})'
+                  .format(row))
         # import data
 
         # style number
@@ -180,6 +182,8 @@ class ProductImporter(ImporterBase):
         self.styles_imported.add(style_number)
 
     def _date_or_none_from_string(self, date_string):
+        log.debug('_date_or_none_from_string(date_string={})'
+                  .format(date_string))
         try:
             return datetime.strptime(date_string, self.date_format)
         except ValueError as e:

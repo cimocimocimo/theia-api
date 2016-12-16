@@ -9,6 +9,7 @@ from .common import *
 DEBUG = True
 
 ALLOWED_HOSTS = [
+    'theia-api-stage.us-east-1.elasticbeanstalk.com',
     'api.staging.theiacouture.com',
     'theia-api-staging.us-east-1.elasticbeanstalk.com',]
 
