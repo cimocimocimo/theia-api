@@ -49,7 +49,7 @@ def get_task_lock_id(task_name, task_sig):
 
 @shared_task(bind=True, default_retry_delay=60, max_retries=5, time_limit=60*10)
 def get_files_to_import(self, account=None):
-    log.debug('get_files_to_import(account={})'.format(account))
+    log.info('get_files_to_import(account={})'.format(account))
 
     lock_id = get_task_lock_id(self.name, str(account))
 
@@ -82,11 +82,12 @@ def get_files_to_import(self, account=None):
                         if ImportFileMeta.is_import_filemeta(e)
                     ]).get_import_file_ids()
 
-                log.debug(import_file_ids)
+                log.info('get_files_to_import() returned import_file_ids: {}'
+                         .format(import_file_ids))
 
                 return import_file_ids
         else:
-            log.debug('get_files_to_import() already running in another job.')
+            log.info('get_files_to_import() already running in another job.')
 
 @shared_task(bind=True, default_retry_delay=60, max_retries=5,
              ignore_result=True, time_limit=60*60) # time limit of 1 hour
@@ -95,7 +96,7 @@ def import_data(self, company_prod_inv_ids, import_filter=None):
     # DEBUG only import Theia products for now.
     import_filter = ['Theia']
 
-    log.debug(
+    log.info(
         'import_data(company_prod_inv_ids={}, import_filter={})'.format(
             company_prod_inv_ids, import_filter))
 
@@ -114,7 +115,7 @@ def import_data(self, company_prod_inv_ids, import_filter=None):
                 if import_filter and company not in import_filter:
                     continue
 
-                log.debug('Importing data for company: {}'.format(company))
+                log.info('Importing data for company: {}'.format(company))
 
                 dropbox = DropboxInterface()
 
@@ -124,41 +125,41 @@ def import_data(self, company_prod_inv_ids, import_filter=None):
                 try:
                     prod_text = dropbox.get_file_contents(prod_id)
                 except Exception as e:
-                    log.debug(e)
+                    log.exception(e)
                     self.retry(e)
 
                 try:
                     inv_text = dropbox.get_file_contents(inv_id)
                 except Exception as e:
-                    log.debug(e)
+                    log.exception(e)
                     self.retry(e)
 
-                log.debug('Importing Product data for company: {}'.format(company))
+                log.info('Importing Product data for company: {}'.format(company))
                 try:
                     ProductImporter().import_data(prod_text)
                 except Exception as e:
-                    log.debug(e)
+                    log.exception(e)
                     self.retry(e)
                 else:
-                    log.debug('Finished Product data import for company: {}'.format(company))
+                    log.info('Finished Product data import for company: {}'.format(company))
 
-                log.debug('Importing Inventory data for company: {}'.format(company))
+                log.info('Importing Inventory data for company: {}'.format(company))
                 try:
                     InventoryImporter().import_data(inv_text)
                 except Exception as e:
-                    log.debug(e)
+                    log.exception(e)
                     self.retry(e)
                 else:
-                    log.debug('Finished Inventory data import for company: {}'.format(company))
+                    log.info('Finished Inventory data import for company: {}'.format(company))
 
-            log.debug('Finished import_data()')
+            log.info('Finished import_data()')
 
         else:
-            log.debug('import_data() already running in another job')
+            log.info('import_data() already running in another job')
 
 @shared_task(bind=True)
 def update_shop_inventory(self, companies=None):
-    log.debug('update_shop_inventory(companies={})'.format(companies))
+    log.info('update_shop_inventory(companies={})'.format(companies))
 
     lock_id = get_task_lock_id(self.name, str(companies))
 
@@ -167,7 +168,7 @@ def update_shop_inventory(self, companies=None):
 
             # TODO: Move this code into an exporter to clean this up.
 
-            log.debug('------- exporting inventory to shopify -------')
+            log.info('------- exporting inventory to shopify -------')
 
             shopify_interface = ShopifyInterface()
             # update the products on shopify
@@ -183,7 +184,7 @@ def update_shop_inventory(self, companies=None):
                 # with products with barcodes from the beginning
                 if shop_variant.barcode == None:
                     # get the local_variant by sku
-                    log.debug('missing barcode for shop_varaint.sku: {}'.format(shop_variant.sku))
+                    log.info('missing barcode for shop_varaint.sku: {}'.format(shop_variant.sku))
                     # local_variant = Variant.objects.get_by_sku(shop_variant.sku)
                     # # update shop_variant with the UPC of the local_products
                     # # shopify_interface()local_variant.upc
@@ -191,18 +192,18 @@ def update_shop_inventory(self, companies=None):
                     try:
                         local_variant = Variant.objects.get(upc=shop_variant.barcode)
                     except Exception as e:
-                        log.debug('Could not get Variant wtih barcode: {}'
+                        log.warning('Could not get Variant wtih barcode: {}'
                                   .format(shop_variant.barcode))
-                        log.debug(e)
+                        log.exception(e)
                     else:
                         log.debug('local_variant={}'.format(local_variant))
                         shopify_interface.update_shop_variant_inventory(
                             shop_variant, local_variant)
 
-            log.debug('------- finished exporting inventory to shopify -------')
+            log.info('------- finished exporting inventory to shopify -------')
 
         else:
-            log.debug(
+            log.info(
                 'Shop inventory update job is already running in another worker')
 
 
