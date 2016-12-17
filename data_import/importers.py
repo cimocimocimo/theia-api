@@ -80,8 +80,11 @@ class ProductImporter(ImporterBase):
         name = row[ProdHeaders.name]
         department = row[ProdHeaders.department]
         division = row[ProdHeaders.division]
-        available_start = self._date_or_none_from_string(row[ProdHeaders.avail_start])
-        available_end = self._date_or_none_from_string(row[ProdHeaders.avail_end])
+        available_start = available_end = None
+        if row[ProdHeaders.avail_start]:
+            available_start = self._date_or_none_from_string(row[ProdHeaders.avail_start])
+        if row[ProdHeaders.avail_end]:
+            available_end = self._date_or_none_from_string(row[ProdHeaders.avail_end])
         description = row[ProdHeaders.description]
         archived = (True if row[ProdHeaders.archived] == 'Y' else False)
         brand_id = row[ProdHeaders.brand_id]
