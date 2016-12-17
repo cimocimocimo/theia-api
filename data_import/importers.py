@@ -1,4 +1,5 @@
 from .models import Color, Size, Product, Variant
+from .helpers import *
 import csv, logging
 from datetime import datetime
 from decimal import *
@@ -51,17 +52,6 @@ class ImporterBase:
         # of the CSV.
         lines = [l.rstrip(',') for l in lines]
         return csv.DictReader(lines)
-
-    def _is_valid_upc(self, upc):
-        try:
-            upc = int(upc)
-        except ValueError:
-            return False
-
-        if len(str(upc)) == 12:
-            return True
-        else:
-            return False
 
     def make_decimal(self, value):
         try:
@@ -155,7 +145,7 @@ class ProductImporter(ImporterBase):
                 continue
 
             # make sure the upc is valid
-            if not self._is_valid_upc(upc_value):
+            if not is_upc_valid(upc_value):
                 log.warning('invalid product upc value: {} for style: {}'
                             .format(upc_value, style_number))
                 continue
