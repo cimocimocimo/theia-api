@@ -150,7 +150,9 @@ class ShopifyInterface:
         "setup connection to Shopify"
         self.shopify.ShopifyResource.set_site(settings.SHOPIFY_SHOP_URL)
         self._get_products_from_shopify()
-        self._get_variants_from_shopify()
+        self.variants = list()
+        for prod in self.products:
+            self.variants.extend(prod.variants)
 
     def add_product(self, product):
         # TODO: Should some of this be in it's own class? A class that
