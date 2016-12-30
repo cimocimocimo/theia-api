@@ -5,13 +5,12 @@ from contextlib import contextmanager
 from django.core.cache import cache
 from hashlib import md5
 from django.conf import settings
-import logging, re
-
-from time import sleep
+import logging
 
 from .importers import ProductImporter, InventoryImporter
+from .exporters import ShopifyExporter
 from .interfaces import DropboxInterface, ShopifyInterface
-from .models import Product, Variant
+from .models import Product, Variant, ImportFileMeta, ImportFileMetaSet
 
 log = logging.getLogger('django')
 
@@ -170,8 +169,13 @@ def update_shop_inventory(self, companies=None):
 
             log.info('------- exporting inventory to shopify -------')
 
+            exporter = ShopifyExporter()
+
+
             shopify_interface = ShopifyInterface()
+
             # update the products on shopify
+            shop_products = shopify_interface.get_products()
 
             # get all the shopify products
             shopify_variants = shopify_interface.get_variants()
@@ -184,10 +188,16 @@ def update_shop_inventory(self, companies=None):
                 # with products with barcodes from the beginning
                 if shop_variant.barcode == None:
                     # get the local_variant by sku
-                    log.info('missing barcode for shop_varaint.sku: {}'.format(shop_variant.sku))
+                    log.info('missing barcode for shop_varaint.sku: {}'
+                             .format(shop_variant.sku))
                     # local_variant = Variant.objects.get_by_sku(shop_variant.sku)
                     # # update shop_variant with the UPC of the local_products
                     # # shopify_interface()local_variant.upc
+
+                elif shop_variant.barcode == 'N/A':
+                    log.info('Invalid barcode "{}" for shop_varaint.sku: {}'
+                             .format(shop_variant.barcode, shop_variant.sku))
+
                 else:
                     try:
                         local_variant = Variant.objects.get(upc=shop_variant.barcode)
@@ -206,84 +216,4 @@ def update_shop_inventory(self, companies=None):
             log.info(
                 'Shop inventory update job is already running in another worker')
 
-
-class ImportFileMeta:
-    type_company_regex = r'^\d{14}\.SHPFY_([A-Za-z]+)Extract_([A-Za-z]+)\.CSV$'
-    type_company_pattern = re.compile(type_company_regex)
-
-    def __init__(self, filemeta):
-        if not self.is_import_filemeta(filemeta):
-            raise Exception(
-                'Invalid FileMetaData passed to ImportFileMetaconstructor')
-        self.filemeta = filemeta
-        self.export_type, self.company = self._get_type_company_from_filename(
-            filemeta.name)
-
-    def _get_type_company_from_filename(self, filename):
-        match = self.type_company_pattern.match(filename)
-        if match:
-            return match.group(1,2)
-        else:
-            return None
-
-    @property
-    def id(self):
-        return self.filemeta.id
-
-    @classmethod
-    def is_import_filemeta(cls, filemeta):
-        """
-        Tests a FileMetaData instance to see if it is a valid Import file.
-        """
-        return (cls.type_company_pattern.match(filemeta.name) and
-                filemeta.path_lower.startswith(
-                    settings.DROPBOX_EXPORT_FOLDER))
-
-class ImportFileMetaSet:
-    # Export type keys
-    PRODUCT = 'Product'
-    INVENTORY = 'Inventory'
-
-    def __init__(self, import_files):
-        self.files = import_files
-        self.company_set = set(
-            f.company for f in self.files)
-        self.export_type_set = set(
-            f.export_type for f in self.files)
-
-    def get_filtered_by_company_type(self, company, export_type):
-        return [
-            f for f in self.files
-            if f.company == company and
-            f.export_type == export_type
-        ]
-
-    def get_most_recent_file_from_list(self, file_list):
-        if len(file_list):
-            # sort by server modified time, newest first
-            file_list.sort(key=lambda x: x.filemeta.server_modified,
-                            reverse=True)
-            return file_list[0]
-        else:
-            return None
-
-    def get_prod_inv_ids_by_company(self, company):
-        prod = self.get_most_recent_file_from_list(
-            self.get_filtered_by_company_type(company, self.PRODUCT))
-
-        inv = self.get_most_recent_file_from_list(
-            self.get_filtered_by_company_type(company, self.INVENTORY))
-
-        return (prod.id, inv.id)
-
-    def get_import_file_ids(self):
-        """get the import files by company"""
-
-        if len(self.files):
-            return {
-                company: self.get_prod_inv_ids_by_company(company)
-                for company in self.company_set
-            }
-        else:
-            return False
 

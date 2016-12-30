@@ -1,4 +1,7 @@
 from django.db import models
+from django.conf import settings
+import re
+
 
 import logging
 
@@ -25,8 +28,6 @@ class Color(models.Model):
     def save(self, *args, **kwargs):
         # create the corrected color name
         self._display_name = correct_color_name(self.name.lower())
-        print(self.name)
-        print(self._display_name)
         super().save(*args, **kwargs)
 
 class Size(models.Model):
@@ -70,6 +71,9 @@ class Product(models.Model):
             if variant.inventory > 0:
                 return True
         return False
+
+    def save(self, *args, **kwargs):
+        super().save(*args, **kwargs)
 
 class VariantQueryset(models.query.QuerySet):
     def get_by_sku(self, sku):
@@ -158,3 +162,102 @@ class Variant(models.Model):
 # TODO: Use this later to create a category hierarchy.
 # class Category(models.Model):
 #     category
+
+
+class ImportFileMeta:
+    type_company_regex = r'^\d{14}\.SHPFY_([A-Za-z]+)Extract_([A-Za-z]+)\.CSV$'
+    type_company_pattern = re.compile(type_company_regex)
+
+    def __init__(self, filemeta):
+        if not self.is_import_filemeta(filemeta):
+            raise Exception(
+                'Invalid FileMetaData passed to ImportFileMetaconstructor')
+        self.filemeta = filemeta
+        self.export_type, self.company = self._get_type_company_from_filename(
+            filemeta.name)
+
+    def _get_type_company_from_filename(self, filename):
+        match = self.type_company_pattern.match(filename)
+        if match:
+            return match.group(1,2)
+        else:
+            return None
+
+    @property
+    def id(self):
+        return self.filemeta.id
+
+    @classmethod
+    def is_import_filemeta(cls, filemeta):
+        """
+        Tests a FileMetaData instance to see if it is a valid Import file.
+        """
+        return (cls.type_company_pattern.match(filemeta.name) and
+                filemeta.path_lower.startswith(
+                    settings.DROPBOX_EXPORT_FOLDER))
+
+class ImportFileMetaSet:
+    # Export type keys
+    PRODUCT = 'Product'
+    INVENTORY = 'Inventory'
+
+    def __init__(self, import_files):
+        self.files = import_files
+        self.company_set = set(
+            f.company for f in self.files)
+        self.export_type_set = set(
+            f.export_type for f in self.files)
+
+    def get_filtered_by_company_type(self, company, export_type):
+        return [
+            f for f in self.files
+            if f.company == company and
+            f.export_type == export_type
+        ]
+
+    def get_most_recent_file_from_list(self, file_list):
+        if len(file_list):
+            # sort by server modified time, newest first
+            file_list.sort(key=lambda x: x.filemeta.server_modified,
+                            reverse=True)
+            return file_list[0]
+        else:
+            return None
+
+    def get_prod_inv_ids_by_company(self, company):
+        prod = self.get_most_recent_file_from_list(
+            self.get_filtered_by_company_type(company, self.PRODUCT))
+
+        inv = self.get_most_recent_file_from_list(
+            self.get_filtered_by_company_type(company, self.INVENTORY))
+
+        return (prod.id, inv.id)
+
+    def get_import_file_ids(self):
+        """get the import files by company"""
+
+        if len(self.files):
+            return {
+                company: self.get_prod_inv_ids_by_company(company)
+                for company in self.company_set
+            }
+        else:
+            return False
+
+    def get_import_files_by_company(self, company):
+        prod = self.get_most_recent_file_from_list(
+            self.get_filtered_by_company_type(company, self.PRODUCT))
+
+        inv = self.get_most_recent_file_from_list(
+            self.get_filtered_by_company_type(company, self.INVENTORY))
+
+        return (prod, inv)
+
+    def get_import_files(self):
+        if len(self.files):
+            return {
+                company: self.get_import_files_by_company(company)
+                for company in self.company_set
+            }
+        else:
+            return False
