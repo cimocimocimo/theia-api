@@ -38,10 +38,9 @@ Things to test:
   - gets all the most recent data from the dropbox and imports it
   - imports all the current products from Shopify
   - scans shopify product variants by sku
-  - 
 """
-test_folder = '/test'
-@override_settings(DROPBOX_EXPORT_FOLDER=test_folder)
+# test_folder = '/test'
+# @override_settings(DROPBOX_EXPORT_FOLDER=test_folder)
 class TestImportProcess(SimpleTestCase):
 
     @classmethod

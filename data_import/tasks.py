@@ -10,7 +10,7 @@ import logging
 from .importers import ProductImporter, InventoryImporter
 from .exporters import ShopifyExporter
 from .interfaces import DropboxInterface, ShopifyInterface
-from .models import Product, Variant, ImportFileMeta, ImportFileMetaSet
+from .models import Product, Variant, ImportFile, ImportFileMeta, ImportFileMetaSet
 
 log = logging.getLogger('django')
 
@@ -47,46 +47,95 @@ def get_task_lock_id(task_name, task_sig):
     return '{0}-lock-{1}'.format(task_name, task_hexdigest)
 
 @shared_task(bind=True, default_retry_delay=60, max_retries=5, time_limit=60*10)
+def load_import_file_meta(self, account=None):
+    log.info('load_import_file_meta({})'.format(account))
+
+    lock_id = get_task_lock_id(self.name, str(account))
+
+    with task_lock(lock_id, self.app.oid) as acquired:
+        if not acquired:
+            log.info('get_files_to_import() already running in another job.')
+            return
+
+        dropbox_interface = DropboxInterface()
+
+        try:
+            entries = dropbox_interface.list_files(
+                account=account,
+                path=settings.DROPBOX_EXPORT_FOLDER)
+
+        except Exception as e:
+            log.warning(e)
+            self.retry(e)
+
+        if entries == None:
+            log.warning('No data files found in dropbox folder {}.'.format(
+                settings.DROPBOX_EXPORT_FOLDER))
+            raise FileNotFoundError(
+                'No data files found in dropbox folder {}.'.format(
+                settings.DROPBOX_EXPORT_FOLDER))
+
+        log.debug(entries)
+
+        # create ImportFile objects for all the entries
+        for e in entries:
+            try:
+                ImportFile.objects.get_or_create(
+                    dropbox_id=e.id,
+                    defaults={
+                        'path_lower': e.path_lower,
+                        'filename': e.name,
+                        'server_modified': e.server_modified,
+                    }
+                )
+            except ValueError as e:
+                log.warning(e)
+            except Exception as e:
+                log.exception(e)
+                return
+
+@shared_task(bind=True, default_retry_delay=60, max_retries=5, time_limit=60*10)
 def get_files_to_import(self, account=None):
     log.info('get_files_to_import(account={})'.format(account))
 
     lock_id = get_task_lock_id(self.name, str(account))
 
     with task_lock(lock_id, self.app.oid) as acquired:
-        if acquired:
-
-            dropbox_interface = DropboxInterface()
-            try:
-                entries = dropbox_interface.list_files(
-                    account=account,
-                    path=settings.DROPBOX_EXPORT_FOLDER)
-
-            except Exception as e:
-                log.warning(e)
-                self.retry(e)
-
-            else:
-                if entries == None:
-                    log.warning('entries was None')
-                    return False
-
-                log.debug(entries)
-
-                # This filters the FileMetaData entries to see if they are valid import
-                # files and if they are creates a list of them. An instance of
-                # ImportFileMetaSet is created with the list. The instance then filters the
-                # files down and returns the import set with the 
-                import_file_ids = ImportFileMetaSet([
-                        ImportFileMeta(e) for e in entries
-                        if ImportFileMeta.is_import_filemeta(e)
-                    ]).get_import_file_ids()
-
-                log.info('get_files_to_import() returned import_file_ids: {}'
-                         .format(import_file_ids))
-
-                return import_file_ids
-        else:
+        if not acquired:
             log.info('get_files_to_import() already running in another job.')
+            return
+
+        dropbox_interface = DropboxInterface()
+        try:
+            entries = dropbox_interface.list_files(
+                account=account,
+                path=settings.DROPBOX_EXPORT_FOLDER)
+
+        except Exception as e:
+            log.warning(e)
+            self.retry(e)
+
+        if entries == None:
+            log.warning('entries was None')
+            return False
+
+        log.debug(entries)
+
+        # This filters the FileMetaData entries to see if they are valid import
+        # files and if they are creates a list of them. An instance of
+        # ImportFileMetaSet is created with the list. The instance then filters the
+        # files down and returns the import set with the 
+        import_file_ids = ImportFileMetaSet([
+                ImportFileMeta(e) for e in entries
+                if ImportFileMeta.is_import_filemeta(e)
+            ]).get_import_file_ids()
+
+        log.info('get_files_to_import() returned import_file_ids: {}'
+                 .format(import_file_ids))
+
+        return import_file_ids
+
+
 
 @shared_task(bind=True, default_retry_delay=60, max_retries=5,
              ignore_result=True, time_limit=60*60) # time limit of 1 hour

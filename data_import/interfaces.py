@@ -50,12 +50,11 @@ class DropboxInterface:
         # Once that is working I can revisit the idea of caching the result
         # cursor in redis to only get the changed files. till then I can't
         # use the result cursor.
-        # cursor = self._get_cursor_for_account(account)
-        cursor = None
+
+        cursor = self._get_cursor_for_account(account)
 
         # first try continue listing the folder. If the cursor is invalid or
         # None then we get an exception and just list the full folder.
-
         try:
             entries, cursor = self._get_result_entries(
                 cursor, path=path, recursive=True)
@@ -105,10 +104,16 @@ class DropboxInterface:
         has_more = True
         while has_more:
 
+            # try the cursor continue
+            if cursor is not None:
+                try:
+                    result = self.dropbox_client.files_list_folder_continue(cursor)
+                except ApiError:
+                    # invalid cursor so we set to None and get the full folder list
+                    cursor = None
+
             if cursor is None:
                 result = self.dropbox_client.files_list_folder(*args, **kwargs)
-            else:
-                result = self.dropbox_client.files_list_folder_continue(cursor)
 
             entries.extend(result.entries)
 

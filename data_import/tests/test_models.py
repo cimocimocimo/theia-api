@@ -89,22 +89,26 @@ class ImportFileTest(TestCase):
         # add a few import files
         ImportFile.objects.create(
             dropbox_id='1',
-            path_lower='00000000000000.SHPFY_ProductExtract_CompanyName.CSV',
+            path_lower='00000000000000.shpfy_productextract_companyname.csv',
+            filename='00000000000000.SHPFY_ProductExtract_CompanyName.CSV',
             server_modified=timezone.now(),
         )
         ImportFile.objects.create(
             dropbox_id='2',
-            path_lower='00000000000000.SHPFY_ProductExtract_CompanyName.CSV',
+            path_lower='00000000000000.shpfy_productextract_companyname.csv',
+            filename='00000000000000.SHPFY_ProductExtract_CompanyName.CSV',
             server_modified=timezone.now()-timedelta(1),
         )
         ImportFile.objects.create(
             dropbox_id='3',
-            path_lower='00000000000000.SHPFY_InventoryExtract_CompanyName.CSV',
+            path_lower='00000000000000.shpfy_inventoryextract_companyname.csv',
+            filename='00000000000000.SHPFY_InventoryExtract_CompanyName.CSV',
             server_modified=timezone.now(),
         )
         ImportFile.objects.create(
             dropbox_id='4',
-            path_lower='00000000000000.SHPFY_InventoryExtract_CompanyName.CSV',
+            path_lower='00000000000000.shpfy_inventoryextract_companyname.csv',
+            filename='00000000000000.SHPFY_InventoryExtract_CompanyName.CSV',
             server_modified=timezone.now()-timedelta(3),
         )
         latest_product = ImportFile.objects.get_by_company_export_type(
