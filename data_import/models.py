@@ -105,6 +105,30 @@ class VariantQueryset(models.query.QuerySet):
 
         return variant
 
+class VariantManager(models.Manager):
+    def get_queryset(self):
+        return VariantQueryset(self.model, using=self._db)
+
+    def get_by_sku(self, sku):
+        return self.get_queryset().get_by_sku(sku)
+
+class Variant(models.Model):
+    upc = models.BigIntegerField(unique=True)
+    product = models.ForeignKey(Product, on_delete = models.CASCADE)
+    color = models.ForeignKey(Color, on_delete = models.CASCADE)
+    size = models.ForeignKey(Size, on_delete = models.CASCADE)
+    inventory = models.SmallIntegerField(default=0)
+
+    objects = VariantManager()
+
+    @property
+    def sku(self):
+        return '{}-{}-{}'.format(
+            self.product.style_number,
+            self.size.name,
+            self.color.name)
+
+
 color_abbreviations = {"blk/watermelon": "black/watermelon",
                        "blush/mid": "blush/midnight",
                        "prb  - prussian blue": "prussian blue",
@@ -133,31 +157,6 @@ def correct_color_name(color):
         return corrected_color
     else:
         return color
-
-
-
-class VariantManager(models.Manager):
-    def get_queryset(self):
-        return VariantQueryset(self.model, using=self._db)
-
-    def get_by_sku(self, sku):
-        return self.get_queryset().get_by_sku(sku)
-
-class Variant(models.Model):
-    upc = models.BigIntegerField(unique=True)
-    product = models.ForeignKey(Product, on_delete = models.CASCADE)
-    color = models.ForeignKey(Color, on_delete = models.CASCADE)
-    size = models.ForeignKey(Size, on_delete = models.CASCADE)
-    inventory = models.SmallIntegerField(default=0)
-
-    objects = VariantManager()
-
-    @property
-    def sku(self):
-        return '{}-{}-{}'.format(
-            self.product.style_number,
-            self.size.name,
-            self.color.name)
 
 # TODO: Use this later to create a category hierarchy.
 # class Category(models.Model):
@@ -261,3 +260,44 @@ class ImportFileMetaSet:
             }
         else:
             return False
+
+
+class ImportFileQueryset(models.query.QuerySet):
+    def get_by_company_export_type(self, company, export_type):
+        return self.filter(company=company, export_type=export_type)
+
+class ImportFileManager(models.Manager):
+    def get_queryset(self):
+        return ImportFileQueryset(self.model, using=self._db)
+
+    def get_by_company_export_type(self, company, export_type):
+        return self.get_queryset().get_by_company_export_type(company, export_type)
+
+class ImportFile(models.Model):
+    class Meta:
+        get_latest_by = 'server_modified'
+
+    # Export Types
+    PRODUCT = 'Product'
+    INVENTORY = 'Inventory'
+
+    # Import Statuses
+    IMPORTED = 'IMPORTED'
+    IN_PROGRESS = 'IN_PROGRESS'
+    NOT_IMPORTED = 'NOT_IMPORTED'
+
+    IMPORT_STATUS_CHOICES = (
+        (IMPORTED, 'Imported'),
+        (IN_PROGRESS, 'In Progress'),
+        (NOT_IMPORTED, 'Not Imported'),
+    )
+
+    dropbox_id = models.CharField(unique=True, max_length=64)
+    path_lower = models.CharField(max_length=1024)
+    server_modified = models.DateTimeField()
+    company = models.CharField(max_length=64)
+    export_type = models.CharField(max_length=64)
+    import_status = models.CharField(max_length=16, choices=IMPORT_STATUS_CHOICES, default=NOT_IMPORTED)
+
+    objects = ImportFileManager()
+
