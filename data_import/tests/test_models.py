@@ -89,33 +89,27 @@ class ImportFileTest(TestCase):
         # add a few import files
         ImportFile.objects.create(
             dropbox_id='1',
-            path_lower='a',
+            path_lower='00000000000000.SHPFY_ProductExtract_CompanyName.CSV',
             server_modified=timezone.now(),
-            company='A',
-            export_type='Product',
         )
         ImportFile.objects.create(
             dropbox_id='2',
-            path_lower='b',
+            path_lower='00000000000000.SHPFY_ProductExtract_CompanyName.CSV',
             server_modified=timezone.now()-timedelta(1),
-            company='A',
-            export_type='Product',
         )
         ImportFile.objects.create(
             dropbox_id='3',
-            path_lower='c',
+            path_lower='00000000000000.SHPFY_InventoryExtract_CompanyName.CSV',
             server_modified=timezone.now(),
-            company='A',
-            export_type='Inventory',
         )
         ImportFile.objects.create(
             dropbox_id='4',
-            path_lower='d',
+            path_lower='00000000000000.SHPFY_InventoryExtract_CompanyName.CSV',
             server_modified=timezone.now()-timedelta(3),
-            company='A',
-            export_type='Inventory',
         )
-        latest_product = ImportFile.objects.get_by_company_export_type('A', 'Product').latest()
-        latest_inventory = ImportFile.objects.get_by_company_export_type('A', 'Inventory').latest()
+        latest_product = ImportFile.objects.get_by_company_export_type(
+            'CompanyName', 'Product').latest()
+        latest_inventory = ImportFile.objects.get_by_company_export_type(
+            'CompanyName', 'Inventory').latest()
         self.assertEqual(latest_product.dropbox_id, '1')
         self.assertEqual(latest_inventory.dropbox_id, '3')

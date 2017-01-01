@@ -292,12 +292,31 @@ class ImportFile(models.Model):
         (NOT_IMPORTED, 'Not Imported'),
     )
 
+    type_company_pattern = re.compile(
+        r'\d{14}\.SHPFY_([A-Za-z]+)Extract_([A-Za-z]+)\.CSV$')
     dropbox_id = models.CharField(unique=True, max_length=64)
     path_lower = models.CharField(max_length=1024)
     server_modified = models.DateTimeField()
     company = models.CharField(max_length=64)
     export_type = models.CharField(max_length=64)
-    import_status = models.CharField(max_length=16, choices=IMPORT_STATUS_CHOICES, default=NOT_IMPORTED)
+    import_status = models.CharField(max_length=16,
+                                     choices=IMPORT_STATUS_CHOICES,
+                                     default=NOT_IMPORTED)
 
     objects = ImportFileManager()
 
+    def save(self, *args, **kwargs):
+        # get the company and export type from the filename during save
+        self._parse_company_export_type()
+        super().save(*args, **kwargs)
+
+    def _parse_company_export_type(self):
+        """Parse the company and export_type from filename."""
+        match = self.type_company_pattern.match(self.path_lower)
+        if match:
+            self.company = match.group(2)
+            self.export_type = match.group(1)
+        else:
+            raise ValueError(
+                'Company or export type not found in filename: {}'
+                .format(self.path_lower))
