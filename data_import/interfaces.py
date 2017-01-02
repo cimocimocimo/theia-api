@@ -121,9 +121,6 @@ class DropboxInterface:
             cursor = result.cursor
             has_more = result.has_more
 
-        if len(entries) == 0:
-            entries = None
-
         log.debug('-------- entries -------')
         log.debug(entries)
 
