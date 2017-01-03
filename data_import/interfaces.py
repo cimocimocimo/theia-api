@@ -8,7 +8,7 @@ class DropboxInterface:
     import dropbox, redis
 
     redis_namespace = 'dropbox'
-    account_key_format = '{}:{{account}}'.format(redis_namespace)
+    account_key_format = '{}:account:{{account}}'.format(redis_namespace)
     cursor_key_format = '{prefix}:cursor'
 
     def __init__(self):
@@ -95,6 +95,16 @@ class DropboxInterface:
         return self.cursor_key_format.format(
             prefix=self.account_key_format.format(
                 account=account))
+
+    def delete_account_cursors(self):
+        # get all the account cursor keys.
+        account_keys = self.redis_client.keys(
+            self.account_key_format.format(account='*'))
+
+        # loop through and delete them.
+        for k in account_keys:
+            self.redis_client.delete(k)
+
 
     def _get_result_entries(self, cursor=None, *args, **kwargs):
         log.debug('calling _get_result_entries(cursor={}, args={}, kwargs={})'

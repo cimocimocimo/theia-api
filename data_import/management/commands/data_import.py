@@ -10,7 +10,7 @@ class Command(BaseCommand):
         # parse subcommand
         parser.add_argument(
             'subcommand',
-            choices=['files', 'import', 'export', 'full'])
+            choices=['files', 'import', 'export', 'full', 'reset_import_files'])
 
         # 2nd is a flag and optional
         parser.add_argument(
@@ -42,6 +42,10 @@ class Command(BaseCommand):
         elif subcommand == 'files':
             self.stdout.write('Getting import file ids')
             controller.get_files_to_import(company_filter)
+
+        elif subcommand == 'reset_import_files':
+            self.stdout.write('Resetting import files')
+            controller.reset_import_files()
 
         else:
             self.stdout.write('Running full data Import/Export')

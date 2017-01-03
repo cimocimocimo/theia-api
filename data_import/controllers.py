@@ -47,6 +47,18 @@ class Controller:
         update_shop_inventory.delay(companies)
         pass
 
+    def reset_import_files(self):
+        from .models import ImportFile
+        from .interfaces import DropboxInterface
+
+        interface = DropboxInterface()
+
+        # delete the cursor from redis
+        interface.delete_account_cursors()
+
+        # delete the import files in the database
+        ImportFile.objects.all().delete()
+
     def full_import_export(self, companies=None):
         chain(
             get_files_to_import.si(),
