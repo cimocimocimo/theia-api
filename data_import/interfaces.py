@@ -70,17 +70,17 @@ class DropboxInterface:
             return None
 
         # filter out folders and deleted files.
-        entries = [
+        added_entries = [
             e for e in entries if
             not isinstance(e, self.dropbox.files.DeletedMetadata) and
             not isinstance(e, self.dropbox.files.FolderMetadata)]
 
-        for e in entries:
-            log.debug(type(e).__name__)
+        deleted_entries = [
+            e for e in entries if
+            isinstance(e, self.dropbox.files.DeletedMetadata)]
 
-        log.debug(entries)
-
-        return entries
+        return {'added': added_entries,
+                'deleted': deleted_entries}
 
     def has_file_ext(self, file, ext):
         return file.path_lower.endswith('.' + ext)

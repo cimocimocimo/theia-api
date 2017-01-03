@@ -75,10 +75,20 @@ def load_import_file_meta(self, account=None):
                 'No data files found in dropbox folder {}.'.format(
                 settings.DROPBOX_EXPORT_FOLDER))
 
-        log.debug(entries)
+        log.debug('Number of added entries: {}\nNumber of deleted entries: {}'
+                  .format(len(entries['added']), len(entries['deleted'])))
+        
+        log.debug('Added entries:')
+        for e in entries['added']:
+            log.debug('name: {}, modified: {}, id: {}'
+                      .format(e.name, e.server_modified, e.id))
+        log.debug('Deleted entries:')
+        for e in entries['deleted']:
+            log.debug('name: {}'
+                      .format(e.name))
 
-        # create ImportFile objects for all the entries
-        for e in entries:
+        for e in entries['added']:
+            # create ImportFile objects for all the entries
             try:
                 ImportFile.objects.get_or_create(
                     dropbox_id=e.id,
@@ -93,6 +103,17 @@ def load_import_file_meta(self, account=None):
             except Exception as e:
                 log.exception(e)
                 return
+
+        for e in entries['deleted']:
+            # create ImportFile objects for all the entries
+            try:
+                ImportFile.objects.filter(path_lower=e.path_lower).delete()
+            except ValueError as e:
+                log.warning(e)
+            except Exception as e:
+                log.exception(e)
+                return
+
 
 @shared_task(bind=True, default_retry_delay=60, max_retries=5, time_limit=60*10)
 def get_files_to_import(self, account=None):
