@@ -262,16 +262,11 @@ class ImportFileMetaSet:
             return False
 
 
-class ImportFileQueryset(models.query.QuerySet):
-    def get_by_company_export_type(self, company, export_type):
-        return self.filter(company=company, export_type=export_type)
+class Company(models.Model):
+    name = models.CharField(unique=True, max_length=64)
 
-class ImportFileManager(models.Manager):
-    def get_queryset(self):
-        return ImportFileQueryset(self.model, using=self._db)
-
-    def get_by_company_export_type(self, company, export_type):
-        return self.get_queryset().get_by_company_export_type(company, export_type)
+class ExportType(models.Model):
+    name = models.CharField(unique=True, max_length=64)
 
 class ImportFile(models.Model):
     class Meta:
@@ -298,32 +293,24 @@ class ImportFile(models.Model):
     path_lower = models.CharField(max_length=1024)
     filename = models.CharField(max_length=1024)
     server_modified = models.DateTimeField()
-    company = models.CharField(max_length=64)
-    export_type = models.CharField(max_length=64)
+    company = models.ForeignKey(Company, on_delete = models.CASCADE)
+    export_type = models.ForeignKey(ExportType, on_delete = models.CASCADE)
     import_status = models.CharField(max_length=16,
                                      choices=IMPORT_STATUS_CHOICES,
                                      default=NOT_IMPORTED)
 
-    objects = ImportFileManager()
-
-    def save(self, *args, **kwargs):
-        # get the company and export type from the filename during save
-        if not self.is_valid:
-            raise ValueError('filename for ImportFile is invalid: {}'
-                             .format(self.filename))
-        self._parse_company_export_type()
-        super().save(*args, **kwargs)
-
-    def _parse_company_export_type(self):
+    @classmethod
+    def parse_company_export_type(cls, filename):
         """Parse the company and export_type from filename."""
-        match = self.type_company_pattern.match(self.filename)
+        match = cls.type_company_pattern.match(filename)
         if match:
-            self.company = match.group(2)
-            self.export_type = match.group(1)
+            company = match.group(2)
+            export_type = match.group(1)
+            return (company, export_type)
         else:
             raise ValueError(
                 'Company or export type not found in filename: {}'
-                .format(self.filename))
+                .format(filename))
 
     def is_valid(self):
         """

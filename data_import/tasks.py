@@ -10,7 +10,7 @@ import logging
 from .importers import ProductImporter, InventoryImporter
 from .exporters import ShopifyExporter
 from .interfaces import DropboxInterface, ShopifyInterface
-from .models import Product, Variant, ImportFile, ImportFileMeta, ImportFileMetaSet
+from .models import Product, Variant, Company, ExportType, ImportFile, ImportFileMeta, ImportFileMetaSet
 
 log = logging.getLogger('django')
 
@@ -54,7 +54,7 @@ def load_import_file_meta(self, account=None):
 
     with task_lock(lock_id, self.app.oid) as acquired:
         if not acquired:
-            log.info('get_files_to_import() already running in another job.')
+            log.info('load_import_file_meta() already running in another job.')
             return
 
         dropbox_interface = DropboxInterface()
@@ -77,7 +77,7 @@ def load_import_file_meta(self, account=None):
 
         log.debug('Number of added entries: {}\nNumber of deleted entries: {}'
                   .format(len(entries['added']), len(entries['deleted'])))
-        
+
         log.debug('Added entries:')
         for e in entries['added']:
             log.debug('name: {}, modified: {}, id: {}'
@@ -87,15 +87,42 @@ def load_import_file_meta(self, account=None):
             log.debug('name: {}'
                       .format(e.name))
 
+        # create ImportFile objects for all the entries
         for e in entries['added']:
-            # create ImportFile objects for all the entries
+            # get the company and export type
             try:
-                ImportFile.objects.get_or_create(
+                company_name, export_type_name = ImportFile.parse_company_export_type(e.name)
+            except ValueError as e:
+                log.warning(e)
+                continue
+
+            try:
+                company, created = Company.objects.get_or_create(
+                    name=company_name)
+            except ValueError as e:
+                log.warning(e)
+            except Exception as e:
+                log.exception(e)
+                return
+
+            try:
+                export_type, created = ExportType.objects.get_or_create(
+                    name=export_type_name)
+            except ValueError as e:
+                log.warning(e)
+            except Exception as e:
+                log.exception(e)
+                return
+
+            try:
+                import_file, created = ImportFile.objects.update_or_create(
                     dropbox_id=e.id,
                     defaults={
                         'path_lower': e.path_lower,
                         'filename': e.name,
                         'server_modified': e.server_modified,
+                        'company': company,
+                        'export_type': export_type,
                     }
                 )
             except ValueError as e:
