@@ -33,8 +33,10 @@ class Controller:
                 update_shop_inventory.si()
             )()
 
-    def get_files_to_import(self, companies=None):
-        get_files_to_import.delay(companies)
+    def get_import_files(self):
+        # TODO: move the code from load_import_file_meta task to here
+        raise NotImplementedError()
+
 
     def import_latest_data(self, companies=None):
         chain(
