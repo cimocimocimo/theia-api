@@ -52,10 +52,18 @@ class Product(models.Model):
     description = models.TextField()
     archived = models.BooleanField()
     brand_id = models.CharField(max_length=64)
-    wholesale_usd = models.DecimalField(max_digits=9, decimal_places=2)
-    retail_usd = models.DecimalField(max_digits=9, decimal_places=2)
-    wholesale_cad = models.DecimalField(max_digits=9, decimal_places=2)
-    retail_cad = models.DecimalField(max_digits=9, decimal_places=2)
+    wholesale_usd = models.DecimalField(max_digits=9,
+                                        decimal_places=2,
+                                        null=True)
+    retail_usd = models.DecimalField(max_digits=9,
+                                     decimal_places=2,
+                                     null=True)
+    wholesale_cad = models.DecimalField(max_digits=9,
+                                        decimal_places=2,
+                                        null=True)
+    retail_cad = models.DecimalField(max_digits=9,
+                                     decimal_places=2,
+                                     null=True)
 
     # TODO: create a category hierarchy, using mptt or treebeard this could be
     # used to create the evening wear and bridal parent categories then have
@@ -393,4 +401,3 @@ class ImportFile(models.Model):
         return (self.type_company_pattern.match(self.filename) and
                 self.path_lower.startswith(
                     settings.DROPBOX_EXPORT_FOLDER))
-
