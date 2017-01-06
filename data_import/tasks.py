@@ -61,8 +61,8 @@ def load_import_file_meta(self, account=None):
 
         try:
             entries = dropbox_interface.list_files(
-                account=account,
-                path=settings.DROPBOX_EXPORT_FOLDER)
+                settings.DROPBOX_EXPORT_FOLDER,
+                account)
 
         except Exception as e:
             log.warning(e)

@@ -8,14 +8,19 @@ class DropboxInterface:
     import dropbox, redis
 
     redis_namespace = 'dropbox'
+    # TODO: Since we are only using one account and only using a token for
+    # authentication we don't need to store or even use the account variable at
+    # all. We would only use accounts if people would authenticate their own
+    # accounts and then used this app. We doubt that will happen. Let's remove
+    # this.
     account_key_format = '{}:account:{{account}}'.format(redis_namespace)
     cursor_key_format = '{prefix}:cursor'
 
     def __init__(self):
         self.dropbox_client = self.dropbox.Dropbox(settings.DROPBOX_TOKEN)
         self.redis_client = self.redis.StrictRedis(host=settings.REDIS_DOMAIN,
-                                 db=settings.REDIS_DB,
-                                 port=settings.REDIS_PORT)
+                                                   db=settings.REDIS_DB,
+                                                   port=settings.REDIS_PORT)
 
     @staticmethod
     def get_accounts_from_notification(data):
@@ -34,23 +39,10 @@ class DropboxInterface:
         filemeta, response = self.dropbox_client.files_download(id)
         return response.text
 
-    def list_files(self, account, path):
+    def list_files(self, path='/', account=None):
         log.debug('calling list_files()')
 
-        # TODO: Storing the cursor to only list the folder changes isn't
-        # working. When I only get the changed files I don't always get the
-        # Product and Inventory export files. They sometimes come together,
-        # sometimes separately.
-        #
-        # I may need to revisit my idea of keeping a local cache of all the
-        # export files on the server in a local database or redis hash. Then
-        # the Product imports can check for a fresh Inventory export file once
-        # they complete their import job.
-        #
-        # Once that is working I can revisit the idea of caching the result
-        # cursor in redis to only get the changed files. till then I can't
-        # use the result cursor.
-
+        # get cursor for account or None if account is None
         cursor = self._get_cursor_for_account(account)
 
         # first try continue listing the folder. If the cursor is invalid or
@@ -63,10 +55,10 @@ class DropboxInterface:
             log.debug(e)
             return None
 
-        if account != None and cursor != None:
+        if account and cursor:
             self._save_cursor_for_account(account, cursor)
 
-        if entries == None:
+        if not entries:
             return None
 
         # filter out folders and deleted files.
@@ -75,6 +67,7 @@ class DropboxInterface:
             not isinstance(e, self.dropbox.files.DeletedMetadata) and
             not isinstance(e, self.dropbox.files.FolderMetadata)]
 
+        # return the deleted entries for removal
         deleted_entries = [
             e for e in entries if
             isinstance(e, self.dropbox.files.DeletedMetadata)]
@@ -137,18 +130,19 @@ class DropboxInterface:
         return entries, cursor
 
     def _get_cursor_for_account(self, account):
-        # get the cursor, returns None if not present
-        cursor = self.redis_client.hget(
-            self._format_redis_cursor_key(account),
-            account)
+        if account:
+            # get the cursor, returns None if not present
+            cursor = self.redis_client.hget(
+                self._format_redis_cursor_key(account),
+                account)
 
-        # convert bytes from redis to string 
-        try:
-            cursor = cursor.decode('utf-8')
-        except AttributeError:
-            pass
+            # convert bytes from redis to string 
+            try:
+                return cursor.decode('utf-8')
+            except AttributeError as e:
+                log.exception(e)
 
-        return cursor
+        return None
 
     def _save_cursor_for_account(self, account, cursor):
         self.redis_client.hset(

@@ -140,6 +140,7 @@ class ImportFileTest(TestCase):
         entries = dropbox.list_files(settings.DROPBOX_EXPORT_FOLDER)
 
         for e in entries['added']:
+            # TODO: Remove this after we clean out the .osiris files
             if e.name.endswith('.osiris'):
                 continue
 
