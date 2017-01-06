@@ -1,7 +1,10 @@
 from django.db import models
 from django.conf import settings
-import re
+from django.utils import timezone
+from datetime import timedelta
+import re, pytz
 
+from .interfaces import DropboxInterface, RedisInterface
 
 import logging
 
@@ -272,6 +275,10 @@ class ImportFile(models.Model):
     class Meta:
         get_latest_by = 'server_modified'
 
+    dropbox = DropboxInterface()
+    # TODO: get this namespace from the Class name somehow
+    redis = RedisInterface('import_file')
+
     # Export Types
     PRODUCT = 'Product'
     INVENTORY = 'Inventory'
@@ -298,6 +305,7 @@ class ImportFile(models.Model):
     import_status = models.CharField(max_length=16,
                                      choices=IMPORT_STATUS_CHOICES,
                                      default=NOT_IMPORTED)
+    redis_key = models.CharField(max_length=1024, null=True)
 
     @classmethod
     def parse_company_export_type(cls, filename):
@@ -311,6 +319,72 @@ class ImportFile(models.Model):
             raise ValueError(
                 'Company or export type not found in filename: {}'
                 .format(filename))
+
+    def save(self, *args, **kwargs):
+        # get 12 hours ago.
+        twelve_hours_ago = timezone.now() - timedelta(hours=12)
+
+        # if server modified is within 12 hours from now
+        self.server_modified = self.server_modified.replace(tzinfo=pytz.UTC)
+        print('server modified: {}'.format(self.server_modified))
+        print(self.filename)
+        if self.server_modified > twelve_hours_ago:
+            # download the file contents
+            content = self._get_content_from_dropbox()
+            if content:
+                self._save_content_to_redis(content)
+
+        super().save(*args, **kwargs)
+
+    @property
+    def content(self):
+        log.debug('Getting content')
+        content = self._get_content_from_redis()
+        print(content)
+        if content:
+            return content
+        else:
+            return self._get_content_from_dropbox()
+
+    @content.deleter
+    def content(self):
+        self.redis.client.delete(self.redis_key)
+
+    def _get_content_from_redis(self):
+        """
+        Return content from redis or None
+        """
+        print(self.redis_key)
+        # check for redis_key
+        if self.redis_key:
+            log.debug('getting content from redis')
+            # try getting the content from redis
+            content = self.redis.client.get(self.redis_key)
+            print(content)
+            try:
+                return content.decode('utf-8')
+            except Exception as e:
+                log.exception(e)
+
+        print('nothing in redis, returning none')
+        return None
+
+    def _get_content_from_dropbox(self):
+        log.debug('getting content from dropbox')
+        try:
+            return self.dropbox.get_file_contents(self.dropbox_id)
+        except Exception as e:
+            log.exception(e)
+            return None
+
+    def _save_content_to_redis(self, content):
+        self.redis_key = self.redis.format_key('dropbox', self.dropbox_id)
+        self.redis.client.set(
+            self.redis_key,
+            content,
+            ex=int(timedelta(hours=12).total_seconds())
+        )
+
 
     def is_valid(self):
         """

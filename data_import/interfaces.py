@@ -278,3 +278,24 @@ class ShopifyInterface:
             items.extend(page)
         return items
 
+class RedisInterface:
+    import redis
+
+    client = redis.StrictRedis(host=settings.REDIS_DOMAIN,
+                               db=settings.REDIS_DB,
+                               port=settings.REDIS_PORT)
+
+    SEPARATOR = ':'
+
+    def __init__(self, namespace=None):
+        self.module = next(iter(self.__module__.split('.')), None)
+        self.namespace = self.module
+        if namespace:
+            self.add_namespace(namespace)
+
+    def add_namespace(self, namespace):
+        self.namespace += self.SEPARATOR + namespace
+
+    def format_key(self, *keys):
+        return self.SEPARATOR.join(
+            [self.namespace] + list(keys))

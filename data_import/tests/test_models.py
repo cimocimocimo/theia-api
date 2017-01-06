@@ -6,7 +6,9 @@ from datetime import timedelta
 
 from .mixins import LoadTestDataMixin
 
-from ..models import Product, Variant, Color, Size, ImportFile
+from ..interfaces import DropboxInterface
+from ..models import (Product, Variant, Color, Size,
+                      ImportFile, Company, ExportType)
 from ..importers import ProductImporter, InventoryImporter
 
 log = logging.getLogger('django')
@@ -85,35 +87,99 @@ class TestVariant(TestCase):
         self.assertEqual(variant.upc, 12341234123413)
 
 class ImportFileTest(TestCase):
-    def test_get_by_company_export_type(self):
+    def test_parse_company_export_type(self):
+        filename = '00000000000000.SHPFY_ExportTypeExtract_CompanyName.CSV'
+        company, export_type = ImportFile.parse_company_export_type(filename)
+        self.assertEqual(company, 'CompanyName')
+        self.assertEqual(export_type, 'ExportType')
+
+    def test_get_latest(self):
         # add a few import files
+        c = Company.objects.create(name='CompanyName')
+        t = ExportType.objects.create(name='Product')
         ImportFile.objects.create(
             dropbox_id='1',
             path_lower='00000000000000.shpfy_productextract_companyname.csv',
             filename='00000000000000.SHPFY_ProductExtract_CompanyName.CSV',
+            company=c, export_type=t,
             server_modified=timezone.now(),
         )
         ImportFile.objects.create(
             dropbox_id='2',
             path_lower='00000000000000.shpfy_productextract_companyname.csv',
             filename='00000000000000.SHPFY_ProductExtract_CompanyName.CSV',
+            company=c, export_type=t,
             server_modified=timezone.now()-timedelta(1),
         )
+        t = ExportType.objects.create(name='Inventory')
         ImportFile.objects.create(
             dropbox_id='3',
             path_lower='00000000000000.shpfy_inventoryextract_companyname.csv',
             filename='00000000000000.SHPFY_InventoryExtract_CompanyName.CSV',
+            company=c, export_type=t,
             server_modified=timezone.now(),
         )
         ImportFile.objects.create(
             dropbox_id='4',
             path_lower='00000000000000.shpfy_inventoryextract_companyname.csv',
             filename='00000000000000.SHPFY_InventoryExtract_CompanyName.CSV',
+            company=c, export_type=t,
             server_modified=timezone.now()-timedelta(3),
         )
-        latest_product = ImportFile.objects.get_by_company_export_type(
-            'CompanyName', 'Product').latest()
-        latest_inventory = ImportFile.objects.get_by_company_export_type(
-            'CompanyName', 'Inventory').latest()
+        latest_product = c.importfile_set.filter(export_type__name='Product').latest()
+        latest_inventory = c.importfile_set.filter(export_type__name='Inventory').latest()
         self.assertEqual(latest_product.dropbox_id, '1')
         self.assertEqual(latest_inventory.dropbox_id, '3')
+
+    def test_save(self):
+        # after saving a proper import file from dropbox we should cache the
+        # content file in redis
+
+        # get the file listing of the entire dropbox
+        dropbox = DropboxInterface()
+        entries = dropbox.list_files(settings.DROPBOX_EXPORT_FOLDER)
+
+        for e in entries['added']:
+            if e.name.endswith('.osiris'):
+                continue
+
+            try:
+                company_name, export_type_name = ImportFile.parse_company_export_type(e.name)
+            except ValueError as e:
+                log.warning(e)
+                continue
+
+            try:
+                company, created = Company.objects.get_or_create(
+                    name=company_name)
+            except ValueError as e:
+                log.warning(e)
+            except Exception as e:
+                log.exception(e)
+                return
+
+            try:
+                export_type, created = ExportType.objects.get_or_create(
+                    name=export_type_name)
+            except ValueError as e:
+                log.warning(e)
+            except Exception as e:
+                log.exception(e)
+                return
+
+            try:
+                import_file, created = ImportFile.objects.update_or_create(
+                    dropbox_id=e.id,
+                    defaults={
+                        'path_lower': e.path_lower,
+                        'filename': e.name,
+                        'server_modified': e.server_modified,
+                        'company': company,
+                        'export_type': export_type,
+                    }
+                )
+            except ValueError as e:
+                log.warning(e)
+            except Exception as e:
+                log.exception(e)
+                return

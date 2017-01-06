@@ -141,12 +141,22 @@ class Controller:
 
     def reset_import_files(self):
         from .models import ImportFile
-        from .interfaces import DropboxInterface
+        from .interfaces import DropboxInterface, RedisInterface
 
-        interface = DropboxInterface()
+        dropbox = DropboxInterface()
+        redis = RedisInterface()
 
         # delete the cursor from redis
-        interface.delete_account_cursors()
+        dropbox.delete_account_cursors()
+
+        # get import files with cached file contents
+        for f in ImportFile.objects.exclude(redis_key__isnull=True):
+            f.delete()
+
+        # cleanup any left over redis keys
+        # TODO: get this key from the redis client somehow.
+        for k in redis.client.keys('data_import:import_file:*'):
+            redis.client.delete(k)
 
         # delete the import files in the database
         ImportFile.objects.all().delete()
