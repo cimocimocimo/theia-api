@@ -329,6 +329,13 @@ class ImportFile(models.Model):
                 .format(filename))
 
     def save(self, *args, **kwargs):
+        # TODO: I'm not sure this is the best place to get file contents. It'll
+        # work for now. But this should be moved to a class method or model
+        # manager that we can call after all the import files are saved to the
+        # database. The main goal is to be able to download all the import
+        # files in parallel. Also be able to create or update the import files
+        # in bulk to speed up the SQL queries.
+
         # get 12 hours ago.
         twelve_hours_ago = timezone.now() - timedelta(hours=12)
 
@@ -344,6 +351,9 @@ class ImportFile(models.Model):
 
         super().save(*args, **kwargs)
 
+    # TODO: I think I could create tasks to download the file contents for both
+    # files simultaneously. Use a chord to run the two download tasks then an
+    # import task to import the two files sequentially.
     @property
     def content(self):
         log.debug('Getting content')

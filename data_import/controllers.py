@@ -1,12 +1,14 @@
 import logging
+from django.conf import settings
 
 from .interfaces import DropboxInterface
 from .models import (Product, Variant, Color, Size,
                      ImportFile, Company, ExportType)
 from .importers import ProductImporter, InventoryImporter
 
-from celery import chain, group
-from .tasks import load_import_file_meta, import_data, update_shop_inventory
+# TODO: Remove all celery task code from Controller
+# from celery import chain, group
+# from .tasks import load_import_file_meta, import_data, update_shop_inventory
 
 log = logging.getLogger('django')
 
@@ -42,21 +44,98 @@ class Controller:
             # get it's export_type and company from the filename
             # also get the server modified date and the dropbox file id
 
-            chain(
-                load_import_file_meta.si(account),
-                # import_data.s(),
-                # update_shop_inventory.si()
-            )()
+            # chain(
+            #     load_import_file_meta.si(account),
+            #     # import_data.s(),
+            #     # update_shop_inventory.si()
+            # )()
+            pass
 
-    def get_import_files(self):
-        # TODO: move the code from load_import_file_meta task to here
-        raise NotImplementedError()
+    def load_import_files(self, account=None):
+
+        # TODO: Refactor this mess.
+        dropbox_interface = DropboxInterface()
+
+        entries = dropbox_interface.list_files(settings.DROPBOX_EXPORT_FOLDER,
+                                               account)
+
+        if entries == None:
+            log.warning('No data files found in dropbox folder {}.'.format(
+                settings.DROPBOX_EXPORT_FOLDER))
+            raise FileNotFoundError(
+                'No data files found in dropbox folder {}.'.format(
+                settings.DROPBOX_EXPORT_FOLDER))
+
+        log.debug('Number of added entries: {}\nNumber of deleted entries: {}'
+                  .format(len(entries['added']), len(entries['deleted'])))
+
+        log.debug('Added entries:')
+        for e in entries['added']:
+            log.debug('name: {}, modified: {}, id: {}'
+                      .format(e.name, e.server_modified, e.id))
+        log.debug('Deleted entries:')
+        for e in entries['deleted']:
+            log.debug('name: {}'
+                      .format(e.name))
+
+        # create ImportFile objects for all the entries
+        for e in entries['added']:
+            # get the company and export type
+            try:
+                company_name, export_type_name = ImportFile.parse_company_export_type(e.name)
+            except ValueError as e:
+                # skip any files that don't have company and export types
+                log.warning(e)
+                continue
+
+            try:
+                company, created = Company.objects.get_or_create(
+                    name=company_name)
+            except ValueError as e:
+                log.warning(e)
+            except Exception as e:
+                log.exception(e)
+                return
+
+            try:
+                export_type, created = ExportType.objects.get_or_create(
+                    name=export_type_name)
+            except ValueError as e:
+                log.warning(e)
+            except Exception as e:
+                log.exception(e)
+                return
+
+            try:
+                import_file, created = ImportFile.objects.update_or_create(
+                    dropbox_id=e.id,
+                    defaults={
+                        'path_lower': e.path_lower,
+                        'filename': e.name,
+                        'server_modified': e.server_modified,
+                        'company': company,
+                        'export_type': export_type,
+                    }
+                )
+            except ValueError as e:
+                log.warning(e)
+            except Exception as e:
+                log.exception(e)
+                return
+
+        # remove the deleted objects
+        for e in entries['deleted']:
+            try:
+                ImportFile.objects.filter(path_lower=e.path_lower).delete()
+            except ValueError as e:
+                log.warning(e)
+            except Exception as e:
+                log.exception(e)
+                return
 
     def import_latest_data(self, import_filter=None):
-
-        # import
+        """ import most recent, unimported files """
         # get the latest import files for each of companies
-
         companies = Company.objects.all()
         export_types = ExportType.objects.all()
 
@@ -70,69 +149,19 @@ class Controller:
             if f.import_status == ImportFile.NOT_IMPORTED
         ]
 
-        print(files_to_import)
-
-        dropbox = DropboxInterface()
+        importers = {
+            ImportFile.PRODUCT: ProductImporter(),
+            ImportFile.INVENTORY: InventoryImporter(),
+        }
 
         for f in files_to_import:
-            try:
-                f.content = dropbox.get_file_contents(f.dropbox_id)
-            except Exception as e:
-                log.exception(e)
-                self.retry(e)
+            importers[f.export_type.name].import_data(f.content)
 
-            if f.export_type.name == ImportFile.PRODUCT:
-                ProductImporter().import_data(f.content)
-            elif f.export_type.name == ImportFile.INVENTORY:
-                InventoryImporter().import_data(inv_text)
-
-        return
-
-        # loop over the company data, and unpack the prod and inventory ids.
-        for company, (prod_id, inv_id) in company_prod_inv_ids.items():
-
-            # if import_filter was passed then skip companies not in the import filter
-            if import_filter and company not in import_filter:
-                continue
-
-            log.info('Importing data for company: {}'.format(company))
-
-            dropbox = DropboxInterface()
-
-            # TODO: I think I could create tasks to download the file contents for both
-            # files simultaneously. Use a chord to run the two download tasks then an
-            # import task to import the two files sequentially.
-            try:
-                prod_text = dropbox.get_file_contents(prod_id)
-            except Exception as e:
-                log.exception(e)
-                self.retry(e)
-
-            try:
-                inv_text = dropbox.get_file_contents(inv_id)
-            except Exception as e:
-                log.exception(e)
-                self.retry(e)
-
-            log.info('Importing Product data for company: {}'.format(company))
-            try:
-                ProductImporter().import_data(prod_text)
-            except Exception as e:
-                log.exception(e)
-                self.retry(e)
-            else:
-                log.info('Finished Product data import for company: {}'.format(company))
-
-            log.info('Importing Inventory data for company: {}'.format(company))
-            try:
-                InventoryImporter().import_data(inv_text)
-            except Exception as e:
-                log.exception(e)
-                self.retry(e)
-            else:
-                log.info('Finished Inventory data import for company: {}'.format(company))
-
-
+    def reset_local_products(self):
+        # removes all the products and their variants in the database
+        for c in [Product, Variant, Size, Color]:
+            c.objects.all().delete()
+        
 
     def export_data(self, companies=None):
         log.debug('Controller().export_data(companies={})'.format(companies))
@@ -140,6 +169,8 @@ class Controller:
         pass
 
     def reset_import_files(self):
+        """reset import_file db tables and redis keys"""
+
         from .models import ImportFile
         from .interfaces import DropboxInterface, RedisInterface
 
@@ -149,24 +180,27 @@ class Controller:
         # delete the cursor from redis
         dropbox.delete_account_cursors()
 
-        # get import files with cached file contents
+        # get import files with redis keys and delete one by one to ensure
+        # their delete() methods are called.
         for f in ImportFile.objects.exclude(redis_key__isnull=True):
             f.delete()
 
         # cleanup any left over redis keys
-        # TODO: get this key from the redis client somehow.
+        # TODO: get this key from the redis client or ImportFile model somehow
         for k in redis.client.keys('data_import:import_file:*'):
             redis.client.delete(k)
 
-        # delete the import files in the database
+        # bulk delete the rest of the import files in the database.
+        # ImportFile.delete() is NOT called in this case.
         ImportFile.objects.all().delete()
 
     def full_import_export(self, companies=None):
-        chain(
-            get_files_to_import.si(),
-            import_data.s(),
-            update_shop_inventory.si()
-        )()
+        # chain(
+        #     get_files_to_import.si(),
+        #     import_data.s(),
+        #     update_shop_inventory.si()
+        # )()
+        pass
 
 
     """

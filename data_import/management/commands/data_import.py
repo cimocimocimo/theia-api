@@ -10,7 +10,12 @@ class Command(BaseCommand):
         # parse subcommand
         parser.add_argument(
             'subcommand',
-            choices=['get_import_files', 'import', 'export', 'full', 'reset_import_files'])
+            choices=['load_import_files',
+                     'import',
+                     'export',
+                     'full',
+                     'reset_import_files',
+                     'reset_local_products',])
 
         # 2nd is a flag and optional
         parser.add_argument(
@@ -39,13 +44,18 @@ class Command(BaseCommand):
             self.stdout.write('Exporting data')
             controller.export_data(company_filter)
 
-        elif subcommand == 'get_import_files':
-            self.stdout.write('Getting import files')
-            controller.get_import_files()
+        elif subcommand == 'load_import_files':
+            self.stdout.write('Loading import files from Dropbox')
+            controller.load_import_files()
 
         elif subcommand == 'reset_import_files':
             self.stdout.write('Resetting import files')
             controller.reset_import_files()
+
+        elif subcommand == 'reset_local_products':
+            self.stdout.write(
+                'Resetting local Products, Variants, Sizes, and Colors')
+            controller.reset_local_products()
 
         else:
             self.stdout.write('Running full data Import/Export')
