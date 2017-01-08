@@ -1,8 +1,6 @@
 from .models import Color, Size, Product, Variant
 from .helpers import *
 import csv, logging
-from datetime import datetime
-from decimal import *
 
 log = logging.getLogger('django')
 
@@ -39,10 +37,8 @@ size_header_format = 'SIZE {}'
 upc_header_format = 'UPC {}'
 
 class ImporterBase:
-    def import_data(self, text):
-        self.text = text
-        self.csv = self._text_to_csv(text)
-        for row in self.csv:
+    def import_data(self, import_file):
+        for row in import_file.rows():
             self.process_row(row)
 
     def _text_to_csv(self, text):
@@ -53,48 +49,20 @@ class ImporterBase:
         lines = [l.rstrip(',') for l in lines]
         return csv.DictReader(lines)
 
-    def make_decimal(self, value):
-        try:
-            return Decimal(str(value))
-        except Exception as e:
-            log.warning('Got exception converting "{}" to Decimal.'
-                      .format(value))
-            log.exception(e)
-
     def process_row(self, row):
         pass
 
 class ProductImporter(ImporterBase):
-    date_format = '%m/%d/%Y'
-
     styles_imported = set()
 
     def process_row(self, row):
+        if not row:
+            return
+
         log.debug('ProductImporter().process_row(row={})'
                   .format(row))
-        # import data
 
-        # style number
         style_number = row[ProdHeaders.style]
-        season = row[ProdHeaders.season]
-        name = row[ProdHeaders.name]
-        department = row[ProdHeaders.department]
-        division = row[ProdHeaders.division]
-        available_start = available_end = None
-        if row[ProdHeaders.avail_start]:
-            available_start = self._date_or_none_from_string(row[ProdHeaders.avail_start])
-        if row[ProdHeaders.avail_end]:
-            available_end = self._date_or_none_from_string(row[ProdHeaders.avail_end])
-        description = row[ProdHeaders.description]
-        archived = (True if row[ProdHeaders.archived] == 'Y' else False)
-        brand_id = row[ProdHeaders.brand_id]
-
-        wholesale_usd = self.make_decimal(row[ProdHeaders.wholesale_usd])
-        retail_usd = self.make_decimal(row[ProdHeaders.retail_usd])
-        wholesale_cad = self.make_decimal(row[ProdHeaders.wholesale_cad])
-        retail_cad = self.make_decimal(row[ProdHeaders.retail_cad])
-
-        category = row[ProdHeaders.category]
 
         # If this product was in the DB already but it's the first time we've
         # seen it in this import. Then let's update the product with the data
@@ -112,20 +80,20 @@ class ProductImporter(ImporterBase):
             prod, prod_created = Product.objects.update_or_create(
                 style_number=style_number,
                 defaults={
-                    'season': season,
-                    'name': name,
-                    'department': department,
-                    'division': division,
-                    'available_start': available_start,
-                    'available_end': available_end,
-                    'description': description,
-                    'archived': archived,
-                    'brand_id': brand_id,
-                    'wholesale_usd': wholesale_usd,
-                    'retail_usd': retail_usd,
-                    'wholesale_cad': wholesale_cad,
-                    'retail_cad': retail_cad,
-                    'category': category,
+                    'season': row[ProdHeaders.addtl_seasons],
+                    'name': row[ProdHeaders.name],
+                    'department': row[ProdHeaders.department],
+                    'division': row[ProdHeaders.division],
+                    'available_start': row[ProdHeaders.avail_start],
+                    'available_end': row[ProdHeaders.avail_end],
+                    'description': row[ProdHeaders.description],
+                    'archived': row[ProdHeaders.archived],
+                    'brand_id': row[ProdHeaders.brand_id],
+                    'wholesale_usd': row[ProdHeaders.wholesale_usd],
+                    'retail_usd': row[ProdHeaders.retail_usd],
+                    'wholesale_cad': row[ProdHeaders.wholesale_cad],
+                    'retail_cad': row[ProdHeaders.retail_cad],
+                    'category': row[ProdHeaders.category],
                 }
             )
 
@@ -143,16 +111,11 @@ class ProductImporter(ImporterBase):
             size_value = row[size_header_format.format(x)]
             upc_value = row[upc_header_format.format(x)]
 
-            # skip if size is blank
-            if not size_value:
+            # skip if size or upc is blank
+            if not size_value or not is_upc_valid(upc_value):
                 continue
 
-            # make sure the upc is valid
-            if not is_upc_valid(upc_value):
-                log.warning('invalid product upc value: {} for style: {}'
-                            .format(upc_value, style_number))
-                continue
-
+            # create size object if needed
             size, size_created = Size.objects.get_or_create(
                 name=size_value
             )
@@ -174,20 +137,26 @@ class ProductImporter(ImporterBase):
         # keep set of style numbers
         self.styles_imported.add(style_number)
 
-    def _date_or_none_from_string(self, date_string):
-        log.debug('_date_or_none_from_string(date_string={})'
-                  .format(date_string))
-        try:
-            return datetime.strptime(date_string, self.date_format)
-        except ValueError as e:
-            log.warning(
-                'ValueError while converting date_string: {} to datetime'
-                .format(date_string))
-            log.exception(e)
-            return None
-
 class InventoryImporter(ImporterBase):
     missing_upcs = 0
+
+    """
+    Import the inventory to redis
+
+    set of the UPCS
+
+    hash of each data line keyed by UPC
+
+    python redis methods to use
+    .hget(name, key) - returns value for hash key
+    .hgetall(name) - returns dict
+    .hset(name, key, value) - individually set keys/values for hash
+    .hmset(name, mapping [dict]) - sets multiple values for hash with name
+    .expire(name, seconds) - seconds can be an integer or timedelta obj.
+
+    .sadd(name, value) - add value to set
+
+    """
 
     def __init__(self):
         super().__init__()
@@ -195,25 +164,9 @@ class InventoryImporter(ImporterBase):
     def process_row(self, row):
         data_error = False
 
-        # get data from row
-        upc_raw = row['UPC']
-        try:
-            upc = int(upc_raw)
-        except ValueError:
-            data_error = True
-            log.warning('invalid inventory upc: {}'.format(upc_raw))
-
-        inventory_raw = int(row['QUANTITY'])
-        try:
-            inventory = int(inventory_raw)
-        except ValueError:
-            data_error = True
-            log.warning('invalid inventory quantity: {}'.format(upc_raw))
-
-        # log or record errors
-        if data_error:
-            log.error('error in inventory data: {}'.format(row))
-            return
+        upc = row['UPC']
+        quantity = row['QUANTITY']
+        date = row['DATE']
 
         try:
             variant = Variant.objects.get(upc=upc)
@@ -221,7 +174,7 @@ class InventoryImporter(ImporterBase):
             log.error('Inventory UPC: {} does not exist'.format(upc))
             self.missing_upcs += 1
         else:
-            if variant.inventory != inventory:
-                variant.inventory = inventory
+            if variant.inventory != quantity:
+                variant.inventory = quantity
                 variant.save(update_fields=['inventory'])
 

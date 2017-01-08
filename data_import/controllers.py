@@ -155,7 +155,7 @@ class Controller:
         }
 
         for f in files_to_import:
-            importers[f.export_type.name].import_data(f.content)
+            importers[f.export_type.name].import_data(f)
 
     def reset_local_products(self):
         # removes all the products and their variants in the database

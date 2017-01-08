@@ -2,9 +2,10 @@ from django.db import models
 from django.conf import settings
 from django.utils import timezone
 from datetime import timedelta
-import re, pytz
+import re, pytz, csv
 
 from .interfaces import DropboxInterface, RedisInterface
+from .schemas import schemas
 
 import logging
 
@@ -13,7 +14,7 @@ log = logging.getLogger('django')
 class Color(models.Model):
     # name from Momentis database
     name = models.CharField(max_length=64)
-    code = models.CharField(max_length=8)
+    code = models.CharField(max_length=8, unique=True)
 
     # name to display on the website
     _display_name = models.CharField(max_length=64)
@@ -173,106 +174,6 @@ def correct_color_name(color):
 # class Category(models.Model):
 #     category
 
-
-class ImportFileMeta:
-    type_company_regex = r'^\d{14}\.SHPFY_([A-Za-z]+)Extract_([A-Za-z]+)\.CSV$'
-    type_company_pattern = re.compile(type_company_regex)
-
-    def __init__(self, filemeta):
-        if not self.is_import_filemeta(filemeta):
-            raise Exception(
-                'Invalid FileMetaData passed to ImportFileMetaconstructor')
-        self.filemeta = filemeta
-        self.export_type, self.company = self._get_type_company_from_filename(
-            filemeta.name)
-
-    def _get_type_company_from_filename(self, filename):
-        match = self.type_company_pattern.match(filename)
-        if match:
-            return match.group(1,2)
-        else:
-            return None
-
-    @property
-    def id(self):
-        return self.filemeta.id
-
-    @classmethod
-    def is_import_filemeta(cls, filemeta):
-        """
-        Tests a FileMetaData instance to see if it is a valid Import file.
-        """
-        return (cls.type_company_pattern.match(filemeta.name) and
-                filemeta.path_lower.startswith(
-                    settings.DROPBOX_EXPORT_FOLDER))
-
-class ImportFileMetaSet:
-    # Export type keys
-    PRODUCT = 'Product'
-    INVENTORY = 'Inventory'
-
-    def __init__(self, import_files):
-        self.files = import_files
-        self.company_set = set(
-            f.company for f in self.files)
-        self.export_type_set = set(
-            f.export_type for f in self.files)
-
-    def get_filtered_by_company_type(self, company, export_type):
-        return [
-            f for f in self.files
-            if f.company == company and
-            f.export_type == export_type
-        ]
-
-    def get_most_recent_file_from_list(self, file_list):
-        if len(file_list):
-            # sort by server modified time, newest first
-            file_list.sort(key=lambda x: x.filemeta.server_modified,
-                            reverse=True)
-            return file_list[0]
-        else:
-            return None
-
-    def get_prod_inv_ids_by_company(self, company):
-        prod = self.get_most_recent_file_from_list(
-            self.get_filtered_by_company_type(company, self.PRODUCT))
-
-        inv = self.get_most_recent_file_from_list(
-            self.get_filtered_by_company_type(company, self.INVENTORY))
-
-        return (prod.id, inv.id)
-
-    def get_import_file_ids(self):
-        """get the import files by company"""
-
-        if len(self.files):
-            return {
-                company: self.get_prod_inv_ids_by_company(company)
-                for company in self.company_set
-            }
-        else:
-            return False
-
-    def get_import_files_by_company(self, company):
-        prod = self.get_most_recent_file_from_list(
-            self.get_filtered_by_company_type(company, self.PRODUCT))
-
-        inv = self.get_most_recent_file_from_list(
-            self.get_filtered_by_company_type(company, self.INVENTORY))
-
-        return (prod, inv)
-
-    def get_import_files(self):
-        if len(self.files):
-            return {
-                company: self.get_import_files_by_company(company)
-                for company in self.company_set
-            }
-        else:
-            return False
-
-
 class Company(models.Model):
     name = models.CharField(unique=True, max_length=64)
 
@@ -351,6 +252,10 @@ class ImportFile(models.Model):
 
         super().save(*args, **kwargs)
 
+    @property
+    def schema(self):
+        return schemas[self.export_type.name]
+
     # TODO: I think I could create tasks to download the file contents for both
     # files simultaneously. Use a chord to run the two download tasks then an
     # import task to import the two files sequentially.
@@ -411,3 +316,49 @@ class ImportFile(models.Model):
         return (self.type_company_pattern.match(self.filename) and
                 self.path_lower.startswith(
                     settings.DROPBOX_EXPORT_FOLDER))
+
+    def rows(self):
+        return CSVRows(self.content, self.schema)
+
+
+class CSVRows:
+    def __init__(self, text, schema):
+        self.text = text
+        self.schema = schema
+        self.columns = dict()
+        self._csv_reader = self._text_to_csv(self.text)
+        self._map_columns(self._csv_reader.fieldnames)
+
+    def _map_columns(self, headers):
+        # map each column's schema for each column that is in the data
+        for h in headers:
+            try:
+                self.columns[h] = self.schema.columns[h]
+            except KeyError:
+                pass
+
+    def _text_to_csv(self, text):
+        lines = text.splitlines()
+        # trim the trailing comma, the export files all seem to have it. By
+        # removing it here we avoid creating an empty column on the right side
+        # of the CSV.
+        lines = [l.rstrip(',') for l in lines]
+        return csv.DictReader(lines)
+
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        raw_dict = next(self._csv_reader)
+        processed = dict()
+        for k,v in raw_dict.items():
+            try:
+                processed[k] = self.columns[k].load(v)
+            except IndexError:
+                pass
+            except ValueError as e:
+                log.exception(e)
+                log.warning('Row contains invalid data')
+                log.warning(raw_dict)
+                return None
+        return processed
