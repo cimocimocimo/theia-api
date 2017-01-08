@@ -7,7 +7,7 @@ from datetime import timedelta
 from .mixins import LoadTestDataMixin
 
 from ..interfaces import DropboxInterface
-from ..models import (Product, Variant, Color, Size,
+from ..models import (Product, Variant, Color, ColorNameCorrection, Size,
                       ImportFile, Company, ExportType)
 from ..importers import ProductImporter, InventoryImporter
 
@@ -31,6 +31,10 @@ class TestProduct(LoadTestDataMixin, TestCase):
 class TestVariant(TestCase):
     @classmethod
     def setUpClass(cls):
+        ColorNameCorrection.objects.create(
+            incorrect='blk',
+            correct='black',
+        )
         product = Product.objects.create(
             style_number=123456,
             archived=False,
@@ -40,7 +44,7 @@ class TestVariant(TestCase):
             wholesale_cad=0,
         )
         color = Color.objects.create(
-            name='RED',
+            momentis_name='RED',
             code='RED',
         )
         size = Size.objects.create(
@@ -51,7 +55,6 @@ class TestVariant(TestCase):
             product=product,
             color=color,
             size=size,
-            inventory=3,
         )
 
         product = Product.objects.create(
@@ -63,7 +66,7 @@ class TestVariant(TestCase):
             wholesale_cad=0,
         )
         color = Color.objects.create(
-            name='BLK',
+            momentis_name='BLK',
             code='BLK',
         )
         variant = Variant.objects.create(
@@ -71,19 +74,23 @@ class TestVariant(TestCase):
             product=product,
             color=color,
             size=size,
-            inventory=5,
         )
 
         super().setUpClass()
 
 
     def test_get_by_sku(self):
+        for v in Variant.objects.all():
+            print(v.sku)
+
         test_sku = '123456-X-red'
-        variant = Variant.objects.get_by_sku(test_sku)
+        print(test_sku)
+        variant = Variant.objects.get(sku=test_sku)
         self.assertEqual(variant.upc, 12341234123412)
 
         test_sku = '123457-X-black'
-        variant = Variant.objects.get_by_sku(test_sku)
+        print(test_sku)
+        variant = Variant.objects.get(sku=test_sku)
         self.assertEqual(variant.upc, 12341234123413)
 
 class ImportFileTest(TestCase):
@@ -184,3 +191,36 @@ class ImportFileTest(TestCase):
             except Exception as e:
                 log.exception(e)
                 return
+
+class ColorTest(TestCase):
+    # (incorrect, correct)
+    color_correction_data = [
+        ('blk/watermelon', 'black/watermelon'),
+        ('blush/mid', 'blush/midnight'),
+        ('prb  - prussian blue', 'prussian blue'),
+        ('blk/midnight', 'black/midnight'),
+        ('blk pewter', 'black pewter'),
+        ('blk/teal', 'black/teal'),
+        ('blk/gold', 'black/gold'),
+        ('champ/silver', 'champagne/silver'),
+        ('creme', 'cream'),
+        ('blk' 'black'),
+    ]
+
+    def test_correct_color_name(self):
+        # ensure that incorrect color names passed to Color constructors are
+        # corrected on save.
+
+        # create the color correction objects
+        for i, correction in enumerate(self.color_correction_data):
+            ColorNameCorrection.objects.create(
+                incorrect=correction[0],
+                correct=correction[1])
+
+            color = Color.objects.create(
+                momentis_name=correction[0],
+                code=str(i)
+            )
+    
+            # ensure the names were corrected
+            self.assertEqual(color.name, correction[1])
