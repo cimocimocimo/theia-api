@@ -87,6 +87,9 @@ class Product(models.Model):
     def save(self, *args, **kwargs):
         super().save(*args, **kwargs)
 
+# TODO: Clean out this sku related stuff.
+# TODO: Generate the sku when the Variant is saved with a corrected color name.
+# Color names should be corrected when the Color object is created.
 class VariantQueryset(models.query.QuerySet):
     def get_by_sku(self, sku):
         style_number, size_name, color_name = sku.split('-')
@@ -129,9 +132,10 @@ class Variant(models.Model):
     product = models.ForeignKey(Product, on_delete = models.CASCADE)
     color = models.ForeignKey(Color, on_delete = models.CASCADE)
     size = models.ForeignKey(Size, on_delete = models.CASCADE)
-    inventory = models.SmallIntegerField(default=0)
 
     objects = VariantManager()
+
+    # TODO: Add a property method that gets the inventory from redis
 
     @property
     def sku(self):

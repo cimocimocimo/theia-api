@@ -1,6 +1,9 @@
+import csv, logging, re
+from datetime import timedelta
+
+from .interfaces import RedisInterface
 from .models import Color, Size, Product, Variant
 from .helpers import *
-import csv, logging
 
 log = logging.getLogger('django')
 
@@ -37,9 +40,17 @@ size_header_format = 'SIZE {}'
 upc_header_format = 'UPC {}'
 
 class ImporterBase:
+    def __init__(self):
+        self.redis = RedisInterface()
+
     def import_data(self, import_file):
+        # TODO: Set the current company in the importer somehow.
         for row in import_file.rows():
             self.process_row(row)
+
+        # make the upc set expire in 12 hours
+        self.redis.client.expire(self.upcs_set_key, timedelta(hours=12))
+
 
     def _text_to_csv(self, text):
         lines = text.splitlines()
@@ -54,9 +65,23 @@ class ImporterBase:
 
 class ProductImporter(ImporterBase):
     styles_imported = set()
+    YEAR = re.compile(r'\d{4}')
+
+    def get_year_from_season(self, season):
+        # get the year from the season
+        m = self.YEAR.search(season)
+        if m:
+            return int(m.group())
+        else:
+            return False
 
     def process_row(self, row):
         if not row:
+            return
+
+        # skip dresses made before 3 years ago
+        season_year = self.get_year_from_season(row[ProdHeaders.season])
+        if season_year and season_year < years_ago(3).year:
             return
 
         log.debug('ProductImporter().process_row(row={})'
@@ -158,23 +183,25 @@ class InventoryImporter(ImporterBase):
 
     """
 
+    # TODO: Add company name to the redis keys 'company_name:inventory'
     def __init__(self):
         super().__init__()
+        self.redis.add_namespace('inventory')
+        self.upcs_set_key = self.redis.format_key('upcs')
+        self.upc_key_prefix = 'upc'
+        # clear the set of upcs
+        self.redis.client.delete(self.upcs_set_key)
 
     def process_row(self, row):
-        data_error = False
-
         upc = row['UPC']
-        quantity = row['QUANTITY']
-        date = row['DATE']
 
-        try:
-            variant = Variant.objects.get(upc=upc)
-        except Variant.DoesNotExist:
-            log.error('Inventory UPC: {} does not exist'.format(upc))
-            self.missing_upcs += 1
-        else:
-            if variant.inventory != quantity:
-                variant.inventory = quantity
-                variant.save(update_fields=['inventory'])
+        # store upc in redis set
+        self.redis.client.sadd(
+            self.upcs_set_key,
+            upc)
 
+        # store row data in redis hash with upc as key
+        key = self.redis.format_key(self.upc_key_prefix, upc)
+        self.redis.client.delete(key)
+        self.redis.client.hmset(key, row)
+        self.redis.client.expire(key, timedelta(hours=12))

@@ -155,6 +155,7 @@ class Controller:
         }
 
         for f in files_to_import:
+            # TODO: pass the current company name to the importer
             importers[f.export_type.name].import_data(f)
 
     def reset_local_products(self):

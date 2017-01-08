@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 from decimal import *
 import re
 
@@ -77,3 +77,8 @@ def int_or_none(x):
 
 def int_or_zero(x):
     return int_or_default(x, 0)
+
+def years_ago(n):
+    """Return a datetime object for n years ago"""
+    DAYS_PER_YEAR = 365
+    return (datetime.now() - timedelta(days=n*DAYS_PER_YEAR))

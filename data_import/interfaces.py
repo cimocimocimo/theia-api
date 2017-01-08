@@ -292,4 +292,4 @@ class RedisInterface:
 
     def format_key(self, *keys):
         return self.SEPARATOR.join(
-            [self.namespace] + list(keys))
+            [self.namespace] + [str(k) for k in keys])
