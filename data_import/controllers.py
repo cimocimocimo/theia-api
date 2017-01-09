@@ -1,10 +1,11 @@
 import logging
 from django.conf import settings
 
-from .interfaces import DropboxInterface
+from .interfaces import DropboxInterface, ShopifyInterface, RedisInterface
 from .models import (Product, Variant, Color, Size,
                      ImportFile, Company, ExportType)
 from .importers import ProductImporter, InventoryImporter
+from .exporters import InventoryExporter
 
 # TODO: Remove all celery task code from Controller
 # from celery import chain, group
@@ -134,7 +135,8 @@ class Controller:
                 return
 
     def import_latest_data(self, import_filter=None):
-        """ import most recent, unimported files """
+        """ Import most recent, unimported files """
+
         # get the latest import files for each of companies
         companies = Company.objects.all()
         export_types = ExportType.objects.all()
@@ -155,14 +157,12 @@ class Controller:
         }
 
         for f in files_to_import:
-            # TODO: pass the current company name to the importer
             importers[f.export_type.name].import_data(f)
 
     def reset_local_products(self):
         # removes all the products and their variants in the database
         for c in [Product, Variant, Size, Color]:
             c.objects.all().delete()
-        
 
     def export_data(self, companies=None):
         log.debug('Controller().export_data(companies={})'.format(companies))
@@ -195,6 +195,21 @@ class Controller:
         # ImportFile.delete() is NOT called in this case.
         ImportFile.objects.all().delete()
 
+    def import_shop_data(self):
+        # get all the products from the shopify store
+        shopify = ShopifyInterface()
+        redis = RedisInterface()
+        products = shopify.get_products()
+        for p in products:
+            # TODO: Store the product dict in redis
+            # p.to_dict()
+            pass
+
+    def update_shop_inventory(self):
+        print('updating shop inventory')
+        exporter = InventoryExporter()
+        exporter.export_data()
+
     def full_import_export(self, companies=None):
         # chain(
         #     get_files_to_import.si(),
@@ -202,29 +217,3 @@ class Controller:
         #     update_shop_inventory.si()
         # )()
         pass
-
-
-    """
-    Import process
-
-    webhook notification
-
-    for each account start an import task
-
-    load the files that have changed
-    - get the dropbox cursor for that account
-    - get the updated files if we have a valid cursor
-    - else get all files
-    - save the dropbox cursor
-
-    sort files by company then by export type
-
-    take the latest file of each
-
-    start a new task for each company
-    - import the products then the inventory
-    - then run the export to shopify for that company
-
-
-
-    """

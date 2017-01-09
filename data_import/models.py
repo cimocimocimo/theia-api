@@ -117,13 +117,20 @@ class Variant(models.Model):
     # TODO: Add a property method that gets the inventory from redis
 
     def generate_sku(self):
-        return '{}-{}-{}'.format(
-            self.product.style_number,
-            self.size.name,
-            self.color.name)
+        parts = [str(self.product.style_number)]
+        size = str(self.size.name)
+        color = str(self.color.name)
+        if size:
+            parts.append(size)
+        if color:
+            parts.append(color)
+        else:
+            parts.append('none')
+        return '-'.join(parts)
 
     def populate_sku(self):
         self.sku = self.generate_sku()
+        print(self.sku)
         self.redis.client.hset(self.redis.format_key('sku_upc_map'),
                                self.sku, self.upc)
 
@@ -148,7 +155,6 @@ class ImportFile(models.Model):
         get_latest_by = 'server_modified'
 
     dropbox = DropboxInterface()
-    # TODO: get this namespace from the Class name somehow
     redis = RedisInterface('import_file')
 
     # Export Types
@@ -283,8 +289,8 @@ class ImportFile(models.Model):
     def rows(self):
         return CSVRows(self.content, self.schema)
 
-
 class CSVRows:
+    """Provides an itererator interface for the ImportFile csv data"""
     def __init__(self, text, schema):
         self.text = text
         self.schema = schema
@@ -325,3 +331,58 @@ class CSVRows:
                 log.warning(raw_dict)
                 return None
         return processed
+
+# redis models
+class RedisModel:
+    def __init__(self):
+        self.redis = RedisInterface()
+        self.items = dict()
+        self.item_key_set = set()
+
+    def add_item(self, key, item):
+        self.items[key] = item
+        self.item_key_set.add(key)
+
+        # add key to redis set
+        self.redis.client.sadd(self.item_set_key_name, key)
+
+        # add item hash to redis
+        key = self._format_item_key(key)
+        self.redis.client.hmset(key, item)
+        self.redis.client.expire(key, timedelta(hours=12))
+
+    def get_item(self, key):
+        key = self._format_item_key(key)
+        item = self.redis.client.hgetall(key)
+        return {
+            k.decode('utf-8'): v.decode('utf-8')
+            for k,v in item.items()
+        }
+
+    def _format_item_key(self, key):
+        return self.redis.format_key(self.item_key_prefix, key)
+
+    def _save_item_set_key(self, key):
+        self.item_set_key_name = self.redis.format_key(key)
+
+    def reset(self):
+        # delete the key set
+        self.redis.client.delete(self.item_set_key_name)
+
+        # delete all the item hashes
+        m = self._format_item_key('*')
+        for k in self.redis.client.scan_iter(match=m):
+            self.redis.client.delete(k)
+
+class Inventory(RedisModel):
+    def __init__(self, company_name):
+        super().__init__()
+        # set key prefix to 'CompanyName:inventory'
+        self.redis.add_namespace(company_name)
+        self.redis.add_namespace('inventory')
+
+        # set the item_set_key
+        self._save_item_set_key('upcs')
+
+        # name the item key prefix
+        self.item_key_prefix = 'upc'

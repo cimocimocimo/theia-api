@@ -1,8 +1,9 @@
 import csv, logging, re
 from datetime import timedelta
+from django.db.utils import IntegrityError
 
 from .interfaces import RedisInterface
-from .models import Color, Size, Product, Variant
+from .models import Color, Size, Product, Variant, Inventory
 from .helpers import *
 
 log = logging.getLogger('django')
@@ -43,22 +44,21 @@ class ImporterBase:
     def __init__(self):
         self.redis = RedisInterface()
 
+    def pre_import_data(self):
+        pass
+
     def import_data(self, import_file):
-        # TODO: Set the current company in the importer somehow.
+        self.import_file = import_file
+
+        self.pre_import_data()
+
         for row in import_file.rows():
             self.process_row(row)
 
-        # make the upc set expire in 12 hours
-        self.redis.client.expire(self.upcs_set_key, timedelta(hours=12))
+        self.post_import_data()
 
-
-    def _text_to_csv(self, text):
-        lines = text.splitlines()
-        # trim the trailing comma, the export files all seem to have it. By
-        # removing it here we avoid creating an empty column on the right side
-        # of the CSV.
-        lines = [l.rstrip(',') for l in lines]
-        return csv.DictReader(lines)
+    def post_import_data(self):
+        pass
 
     def process_row(self, row):
         pass
@@ -126,7 +126,7 @@ class ProductImporter(ImporterBase):
         color, color_created = Color.objects.update_or_create(
             code=row[ProdHeaders.color_code],
             defaults={
-                'name': row[ProdHeaders.color],
+                'momentis_name': row[ProdHeaders.color],
             }
         )
 
@@ -150,14 +150,20 @@ class ProductImporter(ImporterBase):
                 prod.sizes.add(size)
 
             # create variants for this combo of size and colors
-            Variant.objects.update_or_create(
-                upc=upc_value,
-                defaults={
-                    'product': prod,
-                    'color': color,
-                    'size': size,
-                }
-            )
+            try:
+                Variant.objects.update_or_create(
+                    upc=upc_value,
+                    defaults={
+                        'product': prod,
+                        'color': color,
+                        'size': size,
+                    }
+                )
+            except IntegrityError as e:
+                log.exception(e)
+                log.warning(
+                    'Variant could not be created style: {}, upc: {}'.format(
+                        prod.style, upc_value))
 
         # keep set of style numbers
         self.styles_imported.add(style_number)
@@ -183,25 +189,22 @@ class InventoryImporter(ImporterBase):
 
     """
 
-    # TODO: Add company name to the redis keys 'company_name:inventory'
     def __init__(self):
         super().__init__()
-        self.redis.add_namespace('inventory')
-        self.upcs_set_key = self.redis.format_key('upcs')
-        self.upc_key_prefix = 'upc'
-        # clear the set of upcs
-        self.redis.client.delete(self.upcs_set_key)
+
+    def pre_import_data(self):
+        self.inventory = Inventory(self.import_file.company.name)
+        self.inventory.reset()
+        super().pre_import_data()
+
+    def import_data(self, *args, **kwargs):
+        super().import_data(*args, **kwargs)
+
+    def post_import_data(self):
+        super().post_import_data()
 
     def process_row(self, row):
         upc = row['UPC']
 
         # store upc in redis set
-        self.redis.client.sadd(
-            self.upcs_set_key,
-            upc)
-
-        # store row data in redis hash with upc as key
-        key = self.redis.format_key(self.upc_key_prefix, upc)
-        self.redis.client.delete(key)
-        self.redis.client.hmset(key, row)
-        self.redis.client.expire(key, timedelta(hours=12))
+        self.inventory.add_item(upc, row)

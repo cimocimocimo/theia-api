@@ -282,13 +282,15 @@ class RedisInterface:
     SEPARATOR = ':'
 
     def __init__(self, namespace=None):
-        self.module = next(iter(self.__module__.split('.')), None)
-        self.namespace = self.module
+        self.namespace = ''
         if namespace:
             self.add_namespace(namespace)
 
     def add_namespace(self, namespace):
-        self.namespace += self.SEPARATOR + namespace
+        if self.namespace:
+            self.namespace += self.SEPARATOR + namespace
+        else:
+            self.namespace = namespace
 
     def format_key(self, *keys):
         return self.SEPARATOR.join(

@@ -14,7 +14,41 @@ import re, logging
 log = logging.getLogger('django')
 
 class ExporterBase:
-    pass
+    def __init__(self):
+        pass
+
+    def export_data(self):
+        pass
+
+class InventoryExporter(ExporterBase):
+    def __init__(self):
+        # TODO: Get the company name by looping over the companies
+        # TODO: Associate the Shopify login info with the company somehow. (use a dict in settings?)
+        redis = RedisClient('Theia:inventory')
+        shopify = ShopifyInterface()
+        super().__init__()
+
+    def export_data(self):
+        # get all the shopify products
+        products = shopify.get_products()
+
+        # loop over the products
+        for p in products:
+            # loop over the variants
+            for v in p.variants:
+                # check for a upc
+                upc = v.barcode
+                if is_valid_upc(upc):
+                    # update the variant quantity by upc
+                    # quantity = self.redis.client.
+                    pass
+                else:
+                    pass
+                    # update the variant quantity by sku
+
+                    # add the upc to the variant
+
+
 
 class ShopifyExporter(ExporterBase):
     def __init__(self):

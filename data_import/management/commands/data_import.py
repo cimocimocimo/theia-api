@@ -15,7 +15,9 @@ class Command(BaseCommand):
                      'export',
                      'full',
                      'reset_import_files',
-                     'reset_local_products',])
+                     'reset_local_products',
+                     'import_shop_data',
+                     'update_shop_inventory'])
 
         # 2nd is a flag and optional
         parser.add_argument(
@@ -57,9 +59,14 @@ class Command(BaseCommand):
                 'Resetting local Products, Variants, Sizes, and Colors')
             controller.reset_local_products()
 
+        elif subcommand == 'import_shop_data':
+            self.stdout.write('Importing data from shop')
+            controller.import_shop_data()
+
+        elif subcommand == 'update_shop_inventory':
+            self.stdout.write('Updating shop inventory')
+            controller.update_shop_inventory()
+
         else:
             self.stdout.write('Running full data Import/Export')
             controller.full_import_export(company_filter)
-
-
-
