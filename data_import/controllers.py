@@ -206,9 +206,29 @@ class Controller:
             pass
 
     def update_shop_inventory(self):
-        print('updating shop inventory')
         exporter = InventoryExporter()
         exporter.export_data()
+
+    def reset_shop_inventory(self):
+        shopify = ShopifyInterface()
+        products = shopify.get_products()
+        for p in products:
+            save_needed = False
+            if p.product_type == 'Theia Shop':
+                p.product_type = 'Theia Collection'
+                update_needed = True
+            for v in p.variants:
+                if v.inventory_quantity:
+                    save_needed = True
+                    v.inventory_quantity = 0
+                if v.barcode:
+                    save_needed = True
+                    v.barcode = ''
+            if save_needed:
+                print('saving product: {}'.format(p.title))
+                print(p.save())
+            else:
+                print('skipping')
 
     def full_import_export(self, companies=None):
         # chain(

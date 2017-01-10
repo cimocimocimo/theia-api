@@ -37,8 +37,8 @@ class InventoryExporter(ExporterBase):
     # TODO: remove this once we are adding products to shopify automatically.
     def get_upc_by_sku(self, sku):
         try:
-            return self.redis.client.hget('variant:sku_upc_map',
-    sku).decode('utf-8')
+            raw_upc = self.redis.client.hget('variant:sku_upc_map', sku)
+            return raw_upc.decode('utf-8')
         except Exception as e:
             log.exception(e)
             log.warning('Shopify product with sku: {} missing UPC'.format(sku))
@@ -69,28 +69,65 @@ class InventoryExporter(ExporterBase):
 
         # loop over the products
         for p in products:
+            save_needed = False
             # loop over the variants
             for v in p.variants:
                 # check for a upc
                 upc = v.barcode
+                print('barcode from shopify:{}'.format(v.barcode))
+                print('sku from shopify: {}'.format(v.sku))
                 # TODO: remove this once we are adding products to shopify automatically.
                 if not is_upc_valid(upc):
                     # get the upc by the sku using the sku-upc mapping
                     upc = self.get_upc_by_sku(v.sku)
                     if upc:
+                        print('got upc: {} with sku: {}'.format(upc, v.sku))
                         v.barcode = upc
+                        print('barcode: {}'.format(v.barcode))
+                        save_needed = True
                     else:
                         # no upc so we can't find the quantity by upc..
                         continue
 
                 if is_upc_valid(upc):
                     # update the variant quantity by upc
+                    original_quantity = v.inventory_quantity
                     v.inventory_quantity = self.get_quantity_by_upc(upc)
-
+                    if original_quantity != v.inventory_quantity:
+                        print('orig: {}, new: {}'.format(
+                            original_quantity,
+                            v.inventory_quantity
+                        ))
+                        save_needed = True
                 else:
                     # we don't have a valid upc, raise an exception
-                    raise Exception('Got invalid upc from redis: {}'.format(upc))
+                    raise Exception(
+                        'Got invalid upc from redis: {}'.format(upc))
 
+            # is the product instock?
+            if self.is_product_in_stock(p):
+                # ensure the product type is correct
+                if p.product_type != 'Theia Shop':
+                    p.product_type = 'Theia Shop'
+                    save_needed = True
+
+            else:
+                # out of stock, make sure it goes in the lookbook
+                if p.product_type != 'Theia Collection':
+                    p.product_type = 'Theia Collection'
+                    save_needed = True
+
+            if save_needed:
+                print('saving product: {}'.format(p.title))
+                p.save()
+            else:
+                print('skipping')
+
+    def is_product_in_stock(self, p):
+        for v in p.variants:
+            if v.inventory_quantity > 0:
+                return True
+        return False
 
 class ShopifyExporter(ExporterBase):
     def __init__(self):

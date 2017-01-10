@@ -17,7 +17,8 @@ class Command(BaseCommand):
                      'reset_import_files',
                      'reset_local_products',
                      'import_shop_data',
-                     'update_shop_inventory'])
+                     'update_shop_inventory',
+                     'reset_shop_inventory',])
 
         # 2nd is a flag and optional
         parser.add_argument(
@@ -66,6 +67,10 @@ class Command(BaseCommand):
         elif subcommand == 'update_shop_inventory':
             self.stdout.write('Updating shop inventory')
             controller.update_shop_inventory()
+
+        elif subcommand == 'reset_shop_inventory':
+            self.stdout.write('Resetting shop inventory to zero and deleting all the UPC codes')
+            controller.reset_shop_inventory()
 
         else:
             self.stdout.write('Running full data Import/Export')

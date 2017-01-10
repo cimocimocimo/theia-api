@@ -78,7 +78,8 @@ class ProductImporter(ImporterBase):
     # TODO: split this function into two parts
     # the first should create clean and process the row data and save it to redis
     # the second should then scan the data and either bulk create new db records, or
-    # bulk update the items. This way I can split the importer into to jobs that can be run in separate celery tasks.
+    # bulk update the items. This way I can split the importer into to jobs that
+    # can be run in separate celery tasks.
     def process_row(self, row):
         if not row:
             return
@@ -144,7 +145,7 @@ class ProductImporter(ImporterBase):
             upc_value = row[upc_header_format.format(x)]
 
             # skip if size or upc is blank
-            if not size_value or not is_upc_valid(upc_value):
+            if size_value == None or not is_upc_valid(upc_value):
                 continue
 
             # create size object if needed

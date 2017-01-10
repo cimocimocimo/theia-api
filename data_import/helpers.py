@@ -64,13 +64,10 @@ def bool_from_y_n(s):
     return s.lower() == 'y'
 
 def int_or_default(x, default):
-    if x:
-        try:
-            return int(x)
-        except:
-            pass
-
-    return default
+    try:
+        return int(x)
+    except:
+        return default
 
 def int_or_none(x):
     return int_or_default(x, None)
