@@ -75,14 +75,21 @@ class ProductImporter(ImporterBase):
         else:
             return False
 
+    # TODO: split this function into two parts
+    # the first should create clean and process the row data and save it to redis
+    # the second should then scan the data and either bulk create new db records, or
+    # bulk update the items. This way I can split the importer into to jobs that can be run in separate celery tasks.
     def process_row(self, row):
         if not row:
             return
 
         # skip dresses made before 3 years ago
         season_year = self.get_year_from_season(row[ProdHeaders.season])
-        if season_year and season_year < years_ago(3).year:
+        if season_year and season_year < years_ago(1).year:
+            print('less than a year ago')
             return
+
+        print('importing')
 
         log.debug('ProductImporter().process_row(row={})'
                   .format(row))
@@ -163,7 +170,7 @@ class ProductImporter(ImporterBase):
                 log.exception(e)
                 log.warning(
                     'Variant could not be created style: {}, upc: {}'.format(
-                        prod.style, upc_value))
+                        prod.style_number, upc_value))
 
         # keep set of style numbers
         self.styles_imported.add(style_number)

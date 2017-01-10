@@ -130,7 +130,8 @@ class Variant(models.Model):
 
     def populate_sku(self):
         self.sku = self.generate_sku()
-        print(self.sku)
+        # TODO: Remove this after we are creating the products on shopify with imported product data
+        # once that happens we will be adding the upcs and skus automatically
         self.redis.client.hset(self.redis.format_key('sku_upc_map'),
                                self.sku, self.upc)
 
@@ -138,7 +139,6 @@ class Variant(models.Model):
         # populate the sku
         self.populate_sku()
         super().save(*args, **kwargs)
-        
 
 # TODO: Use this later to create a category hierarchy.
 # class Category(models.Model):
@@ -358,6 +358,10 @@ class RedisModel:
             k.decode('utf-8'): v.decode('utf-8')
             for k,v in item.items()
         }
+
+    def get_item_value(self, key, prop):
+        key = self._format_item_key(key)
+        return self.redis.client.hget(key, prop).decode('utf-8')
 
     def _format_item_key(self, key):
         return self.redis.format_key(self.item_key_prefix, key)

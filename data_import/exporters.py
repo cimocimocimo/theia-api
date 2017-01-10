@@ -6,8 +6,8 @@ encapsulates the logic needed to translate the local models into the formats
 needed for the various destinations.
 """
 
-from .interfaces import ShopifyInterface
-from .models import Product, Variant
+from .interfaces import ShopifyInterface, RedisInterface
+from .models import Product, Variant, Inventory
 from .helpers import *
 import re, logging
 
@@ -21,16 +21,51 @@ class ExporterBase:
         pass
 
 class InventoryExporter(ExporterBase):
+    """
+    Export the latest inventory data to the shops for each company.
+
+    TODO: Get companies from the database - just Theia for now
+    """
     def __init__(self):
         # TODO: Get the company name by looping over the companies
         # TODO: Associate the Shopify login info with the company somehow. (use a dict in settings?)
-        redis = RedisClient('Theia:inventory')
-        shopify = ShopifyInterface()
+        self.redis = RedisInterface('') # TODO: remove this when not needed.
+        self.shopify = ShopifyInterface()
+        self.inventory = Inventory('Theia')
         super().__init__()
+
+    # TODO: remove this once we are adding products to shopify automatically.
+    def get_upc_by_sku(self, sku):
+        try:
+            return self.redis.client.hget('variant:sku_upc_map',
+    sku).decode('utf-8')
+        except Exception as e:
+            log.exception(e)
+            log.warning('Shopify product with sku: {} missing UPC'.format(sku))
+            pass
+
+    def get_quantity_by_upc(self, upc):
+        try:
+            quantity = self.inventory.get_item_value(upc,
+        'QUANTITY')
+        except Exception as e:
+            log.exception(e)
+            log.warning('Unable to get quantity with upc: {}'.format(upc))
+            return 0
+        else:
+            try:
+                return int(quantity)
+            except Exception as e:
+                log.exception(e)
+                log.warning(
+                    'Unable to cast quantity value: {} to in for upc: {}'.format(
+                        quantity, upc))
 
     def export_data(self):
         # get all the shopify products
-        products = shopify.get_products()
+        # TODO: Create a Model for shopify objects. provide interface to
+        # Shopify to get the objects and cache them in redis
+        products = self.shopify.get_products()
 
         # loop over the products
         for p in products:
@@ -38,16 +73,23 @@ class InventoryExporter(ExporterBase):
             for v in p.variants:
                 # check for a upc
                 upc = v.barcode
-                if is_valid_upc(upc):
+                # TODO: remove this once we are adding products to shopify automatically.
+                if not is_upc_valid(upc):
+                    # get the upc by the sku using the sku-upc mapping
+                    upc = self.get_upc_by_sku(v.sku)
+                    if upc:
+                        v.barcode = upc
+                    else:
+                        # no upc so we can't find the quantity by upc..
+                        continue
+
+                if is_upc_valid(upc):
                     # update the variant quantity by upc
-                    # quantity = self.redis.client.
-                    pass
+                    v.inventory_quantity = self.get_quantity_by_upc(upc)
+
                 else:
-                    pass
-                    # update the variant quantity by sku
-
-                    # add the upc to the variant
-
+                    # we don't have a valid upc, raise an exception
+                    raise Exception('Got invalid upc from redis: {}'.format(upc))
 
 
 class ShopifyExporter(ExporterBase):
