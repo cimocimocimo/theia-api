@@ -162,9 +162,10 @@ class ImportFile(models.Model):
     INVENTORY = 'Inventory'
 
     # Import Statuses
-    IMPORTED = 'IMPORTED'
-    IN_PROGRESS = 'IN_PROGRESS'
-    NOT_IMPORTED = 'NOT_IMPORTED'
+    IMPORTED = 'IMPORTED' # Data was imported to local database/cache
+    IN_PROGRESS = 'IN_PROGRESS' # In process of importing
+    NOT_IMPORTED = 'NOT_IMPORTED' # Default state
+    EXPIRED = 'EXPIRED' # Never imported, other, newer file of same company/type exists
 
     IMPORT_STATUS_CHOICES = (
         (IMPORTED, 'Imported'),

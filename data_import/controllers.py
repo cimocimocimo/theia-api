@@ -23,35 +23,6 @@ class Controller:
         log.debug('Controller initialized:')
         log.debug(self)
 
-    def handle_notification(self, data):
-        log.debug('Controller.handle_notification called with args:')
-        log.debug(data)
-
-        # get the accounts to check for changes
-        accounts = DropboxInterface.get_accounts_from_notification(data)
-
-        log.debug('accounts: {}'.format(accounts))
-
-        # start task process for each account
-        for account in accounts:
-
-            # keep a cache of all the dropbox files in redis
-            # organized by company and then by export type
-            # keep the most recent company inventory and product file in redis
-            # handle each file separately.
-
-            # store all the files
-            # for each file that comes in
-            # get it's export_type and company from the filename
-            # also get the server modified date and the dropbox file id
-
-            # chain(
-            #     load_import_file_meta.si(account),
-            #     # import_data.s(),
-            #     # update_shop_inventory.si()
-            # )()
-            pass
-
     def load_import_files(self, account=None):
 
         # TODO: Refactor this mess.
@@ -134,27 +105,24 @@ class Controller:
                 log.exception(e)
                 return
 
+        # scan the import files and mark expired files
+        # TODO: Add some way to mark the older import files as expired.
+
     def import_latest_data(self, import_filter=None):
         """ Import most recent, unimported files """
 
         # get the latest import files for each of companies
-        companies = Company.objects.all()
-        export_types = ExportType.objects.all()
-
-        latest_import_files = [
-            c.importfile_set.filter(export_type=t).latest()
-            for t in export_types for c in companies
-        ]
-
         files_to_import = [
-            f for f in latest_import_files
-            if f.import_status == ImportFile.NOT_IMPORTED
-        ]
+            c.importfile_set.filter(
+                export_type=t,
+                import_status=ImportFile.NOT_IMPORTED
+            ).latest()
+            for t in ExportType.objects.all()
+            for c in Company.objects.all()]
 
         importers = {
             ImportFile.PRODUCT: ProductImporter(),
-            ImportFile.INVENTORY: InventoryImporter(),
-        }
+            ImportFile.INVENTORY: InventoryImporter()}
 
         for f in files_to_import:
             importers[f.export_type.name].import_data(f)

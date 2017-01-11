@@ -1,6 +1,5 @@
-from celery import shared_task, chain
+from celery import shared_task, chain, group
 from celery.five import monotonic
-from celery.utils.log import get_task_logger
 from contextlib import contextmanager
 from django.core.cache import cache
 from hashlib import md5
@@ -12,7 +11,7 @@ from .controllers import Controller
 from .importers import ProductImporter, InventoryImporter
 from .exporters import ShopifyExporter
 from .interfaces import DropboxInterface, ShopifyInterface
-from .models import Product, Variant, Company, ExportType, ImportFile, ImportFileMeta, ImportFileMetaSet
+from .models import Product, Variant, Company, ExportType, ImportFile
 
 log = logging.getLogger('django')
 
@@ -48,6 +47,27 @@ def get_task_lock_id(task_name, task_sig):
     task_hexdigest = md5(task_sig.encode('utf-8')).hexdigest()
     return '{0}-lock-{1}'.format(task_name, task_hexdigest)
 
+
+def handle_notification(data):
+    """Process notification data from dropbox and start import tasks
+    """
+    log.debug('Controller.handle_notification called with args:')
+    log.debug(data)
+
+    # get the accounts to check for changes
+    accounts = DropboxInterface.get_accounts_from_notification(data)
+
+    log.debug('accounts: {}'.format(accounts))
+
+    # TODO: We are working with a single Dropbox account so we should remove this later
+    # start task process for each account
+    for account in accounts:
+        chain(
+            load_import_file_meta.si(account),
+            import_data.si(),
+            update_shop_inventory.si()
+        )()
+
 @shared_task(bind=True, default_retry_delay=60, max_retries=5, time_limit=60*10)
 def load_import_file_meta(self, account=None):
     log.info('load_import_file_meta({})'.format(account))
@@ -63,7 +83,7 @@ def load_import_file_meta(self, account=None):
 
 @shared_task(bind=True, default_retry_delay=60, max_retries=5,
              ignore_result=True, time_limit=60*60) # time limit of 1 hour
-def import_data(self, import_filter):
+def import_data(self, import_filter=None):
 
     # DEBUG only import Theia products for now.
     import_filter = ['Theia']
@@ -71,20 +91,21 @@ def import_data(self, import_filter):
     log.info(
         'import_data(import_filter={})'.format(import_filter))
 
-    lock_id = get_task_lock_id(self.name, '{}-{}'.format(company_prod_inv_ids, import_filter))
+    lock_id = get_task_lock_id(self.name, '{}'.format(import_filter))
 
     with task_lock(lock_id, self.app.oid) as acquired:
         if not acquired:
             log.info('import_data() already running in another job')
             return
+
+        c = Controller()
         try:
-            Controller().import_latest_data(import_filter)
+            c.import_latest_data(import_filter)
         except Exception as e:
             log.exception(e)
             self.retry(e)
 
     log.info('Finished import_data()')
-
 
 @shared_task(bind=True)
 def update_shop_inventory(self, companies=None):
@@ -93,57 +114,9 @@ def update_shop_inventory(self, companies=None):
     lock_id = get_task_lock_id(self.name, str(companies))
 
     with task_lock(lock_id, self.app.oid) as acquired:
-        if acquired:
-
-            # TODO: Move this code into an exporter to clean this up.
-
-            log.info('------- exporting inventory to shopify -------')
-
-            exporter = ShopifyExporter()
-
-
-            shopify_interface = ShopifyInterface()
-
-            # update the products on shopify
-            shop_products = shopify_interface.get_products()
-
-            # get all the shopify products
-            shopify_variants = shopify_interface.get_variants()
-
-            for shop_variant in shopify_variants:
-                log.debug(shop_variant.to_dict())
-
-                # going to need to populate the barcodes on first run.
-                # TODO: remove this once the product import is populating the store
-                # with products with barcodes from the beginning
-                if shop_variant.barcode == None:
-                    # get the local_variant by sku
-                    log.info('missing barcode for shop_varaint.sku: {}'
-                             .format(shop_variant.sku))
-                    # local_variant = Variant.objects.get_by_sku(shop_variant.sku)
-                    # # update shop_variant with the UPC of the local_products
-                    # # shopify_interface()local_variant.upc
-
-                elif shop_variant.barcode == 'N/A':
-                    log.info('Invalid barcode "{}" for shop_varaint.sku: {}'
-                             .format(shop_variant.barcode, shop_variant.sku))
-
-                else:
-                    try:
-                        local_variant = Variant.objects.get(upc=shop_variant.barcode)
-                    except Exception as e:
-                        log.warning('Could not get Variant wtih barcode: {}'
-                                  .format(shop_variant.barcode))
-                        log.exception(e)
-                    else:
-                        log.debug('local_variant={}'.format(local_variant))
-                        shopify_interface.update_shop_variant_inventory(
-                            shop_variant, local_variant)
-
-            log.info('------- finished exporting inventory to shopify -------')
-
-        else:
+        if not acquired:
             log.info(
                 'Shop inventory update job is already running in another worker')
+            return
 
-
+        Controller().update_shop_inventory()

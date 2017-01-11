@@ -3,8 +3,6 @@ from django.conf import settings
 from hashlib import sha256
 import hmac, json, logging
 
-from .controllers import Controller
-
 log = logging.getLogger('django')
 
 # Dropbox webhook verification
@@ -33,15 +31,10 @@ def process_notification(request):
     except ValueError:
         return HttpResponseBadRequest()
 
-    Controller().handle_notification(data)
-
-    # importing here prevents import errors. not sure why. - AC
-    # from .tasks import start_dropbox_notification_tasks
-    # start_dropbox_notification_tasks(data)
+    from .tasks import handle_notification
+    handle_notification(data)
 
     return HttpResponse('OK')
-
-# helpers
 
 # verifies the request came from our dropbox app
 def is_request_valid(request):

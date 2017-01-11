@@ -3,7 +3,7 @@ from datetime import timedelta
 from django.db.utils import IntegrityError
 
 from .interfaces import RedisInterface
-from .models import Color, Size, Product, Variant, Inventory
+from .models import Color, Size, Product, Variant, Inventory, ImportFile
 from .helpers import *
 
 log = logging.getLogger('django')
@@ -45,6 +45,8 @@ class ImporterBase:
         self.redis = RedisInterface()
 
     def pre_import_data(self):
+        self.import_file.import_status = ImportFile.IN_PROGRESS
+        self.import_file.save()
         pass
 
     def import_data(self, import_file):
@@ -58,6 +60,8 @@ class ImporterBase:
         self.post_import_data()
 
     def post_import_data(self):
+        self.import_file.import_status = ImportFile.IMPORTED
+        self.import_file.save()
         pass
 
     def process_row(self, row):
