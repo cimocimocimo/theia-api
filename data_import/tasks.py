@@ -62,11 +62,15 @@ def handle_notification(data):
     # TODO: We are working with a single Dropbox account so we should remove this later
     # start task process for each account
     for account in accounts:
-        chain(
-            load_import_file_meta.si(account),
-            import_data.si(),
-            update_shop_inventory.si()
-        )()
+        full_import_export_task.delay(account)
+        # spawn_full_import_job(account)
+
+def spawn_full_import_job(account=None):
+    chain(
+        load_import_file_meta.si(account),
+        import_data.si(),
+        update_shop_inventory.si()
+    )()
 
 @shared_task(bind=True, default_retry_delay=60, max_retries=5, time_limit=60*10)
 def load_import_file_meta(self, account=None):
@@ -120,3 +124,32 @@ def update_shop_inventory(self, companies=None):
             return
 
         Controller().update_shop_inventory()
+
+    log.info('Finished update_shop_inventory()')
+
+@shared_task(bind=True, default_retry_delay=60, max_retries=5,
+             ignore_result=True, time_limit=60*60) # time limit of 1 hour
+def full_import_export_task(self, account=None, companies=None):
+
+    c = Controller()
+    try:
+        c.full_import_export(account, import_filter=['Theia'])
+    except Exception as e:
+        log.exception(e)
+        self.retry(e)
+
+    # lock_id = get_task_lock_id(self.name, '{}-{}'.format(account, companies))
+
+    # with task_lock(lock_id, self.app.oid) as acquired:
+    #     if not acquired:
+    #         log.info('full_import_export_task() already running in another job')
+    #         return
+
+    #     c = Controller()
+    #     try:
+    #         c.full_import_export(account, companies)
+    #     except Exception as e:
+    #         log.exception(e)
+    #         self.retry(e)
+
+    log.info('Finished full_import_export()')

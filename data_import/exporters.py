@@ -46,8 +46,7 @@ class InventoryExporter(ExporterBase):
 
     def get_quantity_by_upc(self, upc):
         try:
-            quantity = self.inventory.get_item_value(upc,
-        'QUANTITY')
+            quantity = self.inventory.get_item_value(upc, 'QUANTITY')
         except Exception as e:
             log.exception(e)
             log.warning('Unable to get quantity with upc: {}'.format(upc))
@@ -125,7 +124,7 @@ class InventoryExporter(ExporterBase):
 
     def is_product_in_stock(self, p):
         for v in p.variants:
-            if v.inventory_quantity > 0:
+            if v.inventory_quantity and v.inventory_quantity > 0:
                 return True
         return False
 

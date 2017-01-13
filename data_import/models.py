@@ -362,7 +362,12 @@ class RedisModel:
 
     def get_item_value(self, key, prop):
         key = self._format_item_key(key)
-        return self.redis.client.hget(key, prop).decode('utf-8')
+        value = self.redis.client.hget(key, prop)
+        try:
+            return value.decode('utf-8')
+        except Exception as e:
+            log.exception(e)
+            log.warning('Unable to decode value: {} for prop: {}, key: {}'.format(value, prop, key))
 
     def _format_item_key(self, key):
         return self.redis.format_key(self.item_key_prefix, key)

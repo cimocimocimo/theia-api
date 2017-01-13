@@ -125,12 +125,20 @@ class Controller:
             ImportFile.INVENTORY: InventoryImporter()}
 
         for f in files_to_import:
-            importers[f.export_type.name].import_data(f)
+            if f.company.name in import_filter:
+                importers[f.export_type.name].import_data(f)
 
     def reset_local_products(self):
         # removes all the products and their variants in the database
         for c in [Product, Variant, Size, Color]:
             c.objects.all().delete()
+
+        # remove Inventory data from redis
+        redis = RedisInterface()
+        for k in redis.client.scan_iter('*inventory*'):
+            redis.client.delete(k)
+        for k in redis.client.scan_iter('*variant*'):
+            redis.client.delete(k)
 
     def export_data(self, companies=None):
         log.debug('Controller().export_data(companies={})'.format(companies))
@@ -156,7 +164,7 @@ class Controller:
 
         # cleanup any left over redis keys
         # TODO: get this key from the redis client or ImportFile model somehow
-        for k in redis.client.keys('data_import:import_file:*'):
+        for k in redis.client.keys('import_file:*'):
             redis.client.delete(k)
 
         # bulk delete the rest of the import files in the database.
@@ -198,10 +206,7 @@ class Controller:
             else:
                 print('skipping')
 
-    def full_import_export(self, companies=None):
-        # chain(
-        #     get_files_to_import.si(),
-        #     import_data.s(),
-        #     update_shop_inventory.si()
-        # )()
-        pass
+    def full_import_export(self, account=None, import_filter=None):
+        self.load_import_files(account)
+        self.import_latest_data(import_filter)
+        self.update_shop_inventory()
