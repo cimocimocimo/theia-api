@@ -180,6 +180,12 @@ class ProductImporter(ImporterBase):
         # keep set of style numbers
         self.styles_imported.add(style_number)
 
+        def post_import_data(self):
+        # TODO: Remove this expire code once upcs are added on import.
+        # set expire on variant key
+        self.redis.client.expire('variant:sku_upc_map', timedelta(days=1))
+        super().post_import_data()
+
 class InventoryImporter(ImporterBase):
     missing_upcs = 0
 

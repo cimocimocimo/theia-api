@@ -272,12 +272,8 @@ class ImportFile(models.Model):
 
     def _save_content_to_redis(self, content):
         self.redis_key = self.redis.format_key('dropbox', self.dropbox_id)
-        self.redis.client.set(
-            self.redis_key,
-            content,
-            ex=int(timedelta(hours=12).total_seconds())
-        )
-
+        expire = timedelta(hours=12)
+        self.redis.client.set(self.redis_key, content, ex=expire)
 
     def is_valid(self):
         """

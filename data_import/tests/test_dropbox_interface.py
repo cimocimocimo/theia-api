@@ -1,5 +1,6 @@
 from django.test import TestCase
 from django.conf import settings
+from datetime import timedelta
 
 from ..interfaces import DropboxInterface
 
@@ -12,9 +13,10 @@ class DropboxInterfaceTest(TestCase):
 
     def test_delete_account_cursors(self):
         # create a key that should match the pattern
-        self.dropbox.redis_client.hset(
-            self.dropbox._format_redis_cursor_key('testing'),
-            'testing', 'testing')
+        key = self.dropbox._format_redis_cursor_key('testing')
+        self.dropbox.redis_client.hset(key, 'testing', 'testing')
+        # set expire in case the test doesn't delete the key
+        self.dropbox.redis_client.expire(key, timedelta(hours=1))
 
         # make sure the key was created with the correct value
         test_key_value = self.dropbox.redis_client.hget(
