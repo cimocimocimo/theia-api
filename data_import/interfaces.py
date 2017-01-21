@@ -1,5 +1,6 @@
 from django.conf import settings
 from ratelimit import rate_limited
+from datetime import timedelta
 import os, logging
 
 log = logging.getLogger('django')
@@ -145,9 +146,12 @@ class DropboxInterface:
         return None
 
     def _save_cursor_for_account(self, account, cursor):
+        key = self._format_redis_cursor_key(account)
+        expire = int(timedelta(days=1).total_seconds())
         self.redis_client.hset(
-            self._format_redis_cursor_key(account),
+            key,
             account, cursor)
+        self.redis_client.expire(key, expire)
 
 class ShopifyInterface:
     import shopify
