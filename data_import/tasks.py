@@ -13,7 +13,7 @@ from .exporters import ShopifyExporter
 from .interfaces import DropboxInterface, ShopifyInterface
 from .models import Product, Variant, Company, ExportType, ImportFile
 
-log = logging.getLogger('django')
+log = logging.getLogger(__name__).getChild('celery')
 
 LOCK_EXPIRE = 60 * 10 # Lock expires in 10 minutes
 

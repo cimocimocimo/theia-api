@@ -42,14 +42,18 @@ def valid_upc_from_str(upc):
 def date_or_none_from_string(date_string):
     date_format = '%m/%d/%Y'
 
-    try:
-        return datetime.strptime(date_string, date_format)
-    except ValueError as e:
-        log.warning(
-            'ValueError while converting date_string: {} to datetime'
-            .format(date_string))
-        log.exception(e)
-        return None
+    # skip over blank dates
+    if date_string:
+        try:
+            return datetime.strptime(date_string, date_format)
+        except ValueError as e:
+            log.warning(
+                'ValueError while converting date_string: {} to datetime'
+                .format(date_string))
+            log.exception(e)
+
+    # default to returning none
+    return None
 
 def make_decimal_or_none(value):
     try:

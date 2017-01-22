@@ -11,7 +11,7 @@ from .models import Product, Variant, Inventory
 from .helpers import *
 import re, logging
 
-log = logging.getLogger('django')
+log = logging.getLogger(__name__).getChild('export')
 
 class ExporterBase:
     def __init__(self):
@@ -39,8 +39,7 @@ class InventoryExporter(ExporterBase):
         try:
             raw_upc = self.redis.client.hget('variant:sku_upc_map', sku)
             return raw_upc.decode('utf-8')
-        except Exception as e:
-            log.exception(e)
+        except:
             log.warning('Shopify product with sku: {} missing UPC'.format(sku))
             pass
 

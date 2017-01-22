@@ -11,7 +11,7 @@ from .exporters import InventoryExporter
 # from celery import chain, group
 # from .tasks import load_import_file_meta, import_data, update_shop_inventory
 
-log = logging.getLogger('django')
+log = logging.getLogger(__name__)
 
 class Controller:
     """
@@ -125,7 +125,9 @@ class Controller:
             ImportFile.INVENTORY: InventoryImporter()}
 
         for f in files_to_import:
-            if f.company.name in import_filter:
+            if import_filter and f.company.name not in import_filter:
+                continue
+            else:
                 importers[f.export_type.name].import_data(f)
 
     def reset_local_products(self):

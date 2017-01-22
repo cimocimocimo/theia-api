@@ -109,27 +109,85 @@ STATIC_URL = '/static/'
 STATIC_ROOT = os.path.join(BASE_DIR, 'static')
 
 # Logging
+MAX_LOG_SIZE = 1024*1000*5 # 5MB in bytes
 LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,
-    'handlers': {
-        'file': {
-            'class': 'logging.FileHandler',
-            'level': 'INFO',
-            'filename': '/opt/python/log/app.log',
-            'formatter': 'verbose',
-        },
-    },
     'loggers': {
-        'django': {
-            'handlers': ['file'],
+        'data_import': {
+            'handlers': ['general'],
             'level': 'INFO',
             'propagate': True,
+        },
+        'data_import.import': {
+            'handlers': ['import'],
+            'level': 'INFO',
+            'propagate': True,
+        },
+        'data_import.export': {
+            'handlers': ['export'],
+            'level': 'INFO',
+            'propagate': True,
+        },
+        'data_import.interface': {
+            'handlers': ['interface'],
+            'level': 'INFO',
+            'propagate': True,
+        },
+        'data_import.celery': {
+            'handlers': ['celery'],
+            'level': 'INFO',
+            'propagate': True,
+        },
+    },
+    'handlers': {
+        'general': {
+            'class': 'logging.handlers.RotatingFileHandler',
+            'level': 'INFO',
+            'filename': '/opt/python/log/data_import.log',
+            'formatter': 'normal',
+            'maxBytes': MAX_LOG_SIZE,
+            'backupCount': 5,
+        },
+        'import': {
+            'class': 'logging.handlers.RotatingFileHandler',
+            'level': 'INFO',
+            'filename': '/opt/python/log/data_import_import.log',
+            'formatter': 'normal',
+            'maxBytes': MAX_LOG_SIZE,
+            'backupCount': 5,
+        },
+        'export': {
+            'class': 'logging.handlers.RotatingFileHandler',
+            'level': 'INFO',
+            'filename': '/opt/python/log/data_import_export.log',
+            'formatter': 'normal',
+            'maxBytes': MAX_LOG_SIZE,
+            'backupCount': 5,
+        },
+        'interface': {
+            'class': 'logging.handlers.RotatingFileHandler',
+            'level': 'INFO',
+            'filename': '/opt/python/log/data_import_interface.log',
+            'formatter': 'normal',
+            'maxBytes': MAX_LOG_SIZE,
+            'backupCount': 5,
+        },
+        'celery': {
+            'class': 'logging.handlers.RotatingFileHandler',
+            'level': 'INFO',
+            'filename': '/opt/python/log/data_import_celery.log',
+            'formatter': 'normal',
+            'maxBytes': MAX_LOG_SIZE,
+            'backupCount': 5,
         },
     },
     'formatters': {
         'verbose': {
             'format': '%(levelname)s %(asctime)s %(module)s %(process)d %(thread)d\n%(message)s'
+        },
+        'normal': {
+            'format': '%(levelname)s %(asctime)s\n%(message)s'
         },
     },
 }
