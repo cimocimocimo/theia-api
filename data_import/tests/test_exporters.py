@@ -20,7 +20,6 @@ class TestShopifyExporter(LoadTestDataMixin, TransactionTestCase):
 
     @classmethod
     def setUpClass(cls):
-        # cls.exporter = ShopifyExporter()
         cls.mock_shop_prod = MockShopProduct()
 
         super().setUpClass()

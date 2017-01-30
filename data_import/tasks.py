@@ -9,7 +9,6 @@ import logging
 from .controllers import Controller
 
 from .importers import ProductImporter, InventoryImporter
-from .exporters import ShopifyExporter
 from .interfaces import DropboxInterface, ShopifyInterface
 from .models import Product, Variant, Company, ExportType, ImportFile
 
