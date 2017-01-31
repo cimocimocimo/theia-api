@@ -68,16 +68,19 @@ class InventoryExporter(ExporterBase):
         # loop over the products
         for p in products:
             save_needed = False
+
             # loop over the variants
             for v in p.variants:
+
                 # check for a upc
                 upc = v.barcode
-                print('barcode from shopify:{}'.format(v.barcode))
-                print('sku from shopify: {}'.format(v.sku))
+
                 # TODO: remove this once we are adding products to shopify automatically.
                 if not is_upc_valid(upc):
-                    # get the upc by the sku using the sku-upc mapping
+
+                    # get upc from sku-upc mapping
                     upc = self.get_upc_by_sku(v.sku)
+
                     if upc:
                         print('got upc: {} with sku: {}'.format(upc, v.sku))
                         v.barcode = upc
@@ -92,10 +95,6 @@ class InventoryExporter(ExporterBase):
                     original_quantity = v.inventory_quantity
                     v.inventory_quantity = self.get_quantity_by_upc(upc)
                     if original_quantity != v.inventory_quantity:
-                        print('orig: {}, new: {}'.format(
-                            original_quantity,
-                            v.inventory_quantity
-                        ))
                         save_needed = True
                 else:
                     # we don't have a valid upc, raise an exception
