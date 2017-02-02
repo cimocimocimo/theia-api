@@ -207,6 +207,16 @@ class ColorTest(TestCase):
         ('blk' 'black'),
     ]
 
+    # color name, expected url safe color name
+    url_safe_data = [
+        ('black/watermelon', 'blackWatermelon'),
+        ('blush/midnight', 'blushMidnight'),
+        ('prussian blue', 'prussian+blue'),
+        ('black pewter', 'black+pewter'),
+        ('cream', 'cream'),
+        ('black', 'black'),
+    ]
+
     def test_correct_color_name(self):
         # ensure that incorrect color names passed to Color constructors are
         # corrected on save.
@@ -221,6 +231,12 @@ class ColorTest(TestCase):
                 momentis_name=correction[0],
                 code=str(i)
             )
-    
+
             # ensure the names were corrected
             self.assertEqual(color.name, correction[1])
+
+    def test_url_safe_name(self):
+        for pair in self.url_safe_data:
+            # create color with first pair color name
+            color = Color(name=pair[0])
+            self.assertEqual(color.url_safe_name, pair[1])

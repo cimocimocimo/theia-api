@@ -4,6 +4,7 @@ from django.utils import timezone
 from datetime import timedelta
 import re, pytz, csv
 
+from .helpers import replace_spaces_with, forward_slash_to_mixedCase
 from .interfaces import DropboxInterface, RedisInterface
 from .schemas import schemas
 
@@ -29,6 +30,18 @@ class Color(models.Model):
                 incorrect=color_name).correct
         except ColorNameCorrection.DoesNotExist:
             return color_name
+
+    @property
+    def url_safe_name(self):
+        # replace spaces with '+'
+        # 'color name' -> 'color+name'
+        name = replace_spaces_with(self.name, r'+')
+
+        # remove '/' and capitalize the first letter after it
+        # 'color/name' -> 'colorName'
+        name = forward_slash_to_mixedCase(name)
+
+        return name
 
     def save(self, *args, **kwargs):
         # create the corrected color name

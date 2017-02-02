@@ -83,3 +83,15 @@ def years_ago(n):
     """Return a datetime object for n years ago"""
     DAYS_PER_YEAR = 365
     return (datetime.now() - timedelta(days=n*DAYS_PER_YEAR))
+
+
+# Color name conversion
+def replace_spaces_with(string, replace):
+    """Replace spaces in string with value of replace"""
+    return re.sub(r'\s', replace, string)
+
+def forward_slash_to_mixedCase(string):
+    """Remove forward slash and change case of following letter to uppercase"""
+    return re.sub(
+        r'/([a-zA-Z]?)',
+        lambda m: m.group(1).upper(), string)
