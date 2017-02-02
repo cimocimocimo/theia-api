@@ -25,11 +25,9 @@ DATABASES = {
 }
 
 # Logging
-if 'DJANGO_LOG_FILENAME' in os.environ:
-    for name, handler in LOGGING['handlers'].items():
-        # move the log file to the project directory
-        handler['filename'] = handler['filename'].split('/')[-1]
-        pass
+for name, handler in LOGGING['handlers'].items():
+    # move the log file to the project directory
+    handler['filename'] = handler['filename'].split('/')[-1]
 
 # Redis
 REDIS_DB = os.environ['DEV_REDIS_DB']
