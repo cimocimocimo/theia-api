@@ -80,18 +80,35 @@ class TestVariant(TestCase):
 
 
     def test_get_by_sku(self):
-        for v in Variant.objects.all():
-            print(v.sku)
-
         test_sku = '123456-X-red'
-        print(test_sku)
         variant = Variant.objects.get(sku=test_sku)
         self.assertEqual(variant.upc, 12341234123412)
 
         test_sku = '123457-X-black'
-        print(test_sku)
         variant = Variant.objects.get(sku=test_sku)
         self.assertEqual(variant.upc, 12341234123413)
+
+    def test_generate_sku(self):
+        test_style = '000000'
+        test_size = '0'
+        test_colors = [
+            'color name',
+            'color/name',
+            'colorname']
+        expected_skus = [
+            '000000-0-color_name',
+            '000000-0-colorName',
+            '000000-0-colorname']
+
+        p = Product(style_number=test_style)
+        s = Size(name=test_size)
+
+        for i, color in enumerate(test_colors):
+            c = Color(name=color)
+            v = Variant(product=p,
+                        size=s,
+                        color=c)
+            self.assertEqual(expected_skus[i], v.generate_sku())
 
 class ImportFileTest(TestCase):
     def test_parse_company_export_type(self):

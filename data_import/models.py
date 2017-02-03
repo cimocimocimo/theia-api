@@ -136,6 +136,10 @@ class Variant(models.Model):
         if size:
             parts.append(size)
         if color:
+            # replace spaces with '_'
+            color = replace_spaces_with(color, r'_')
+            # remove '/' and capitalize the first letter after it
+            color = forward_slash_to_mixedCase(color)
             parts.append(color)
         else:
             parts.append('none')
