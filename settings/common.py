@@ -110,6 +110,7 @@ STATIC_ROOT = os.path.join(BASE_DIR, 'static')
 
 # Logging
 MAX_LOG_SIZE = 1024*1000*5 # 5MB in bytes
+LOG_DIR = '/opt/python/log/data_import/'
 LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,
@@ -144,7 +145,7 @@ LOGGING = {
         'general': {
             'class': 'logging.handlers.RotatingFileHandler',
             'level': 'INFO',
-            'filename': '/opt/python/log/data_import.log',
+            'filename': LOG_DIR + 'data_import.log',
             'formatter': 'normal',
             'maxBytes': MAX_LOG_SIZE,
             'backupCount': 5,
@@ -152,7 +153,7 @@ LOGGING = {
         'import': {
             'class': 'logging.handlers.RotatingFileHandler',
             'level': 'INFO',
-            'filename': '/opt/python/log/data_import_import.log',
+            'filename': LOG_DIR + 'data_import_import.log',
             'formatter': 'normal',
             'maxBytes': MAX_LOG_SIZE,
             'backupCount': 5,
@@ -160,7 +161,7 @@ LOGGING = {
         'export': {
             'class': 'logging.handlers.RotatingFileHandler',
             'level': 'INFO',
-            'filename': '/opt/python/log/data_import_export.log',
+            'filename': LOG_DIR + 'data_import_export.log',
             'formatter': 'normal',
             'maxBytes': MAX_LOG_SIZE,
             'backupCount': 5,
@@ -168,7 +169,7 @@ LOGGING = {
         'interface': {
             'class': 'logging.handlers.RotatingFileHandler',
             'level': 'INFO',
-            'filename': '/opt/python/log/data_import_interface.log',
+            'filename': LOG_DIR + 'data_import_interface.log',
             'formatter': 'normal',
             'maxBytes': MAX_LOG_SIZE,
             'backupCount': 5,
@@ -176,7 +177,7 @@ LOGGING = {
         'celery': {
             'class': 'logging.handlers.RotatingFileHandler',
             'level': 'INFO',
-            'filename': '/opt/python/log/data_import_celery.log',
+            'filename': LOG_DIR + 'data_import_celery.log',
             'formatter': 'normal',
             'maxBytes': MAX_LOG_SIZE,
             'backupCount': 5,
