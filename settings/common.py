@@ -110,7 +110,7 @@ STATIC_ROOT = os.path.join(BASE_DIR, 'static')
 
 # Logging
 MAX_LOG_SIZE = 1024*1000*5 # 5MB in bytes
-LOG_DIR = '/opt/python/log/data_import/'
+LOG_DIR = '/opt/python/log/'
 LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,
@@ -121,22 +121,22 @@ LOGGING = {
             'propagate': True,
         },
         'data_import.import': {
-            'handlers': ['import'],
+            'handlers': ['general'],
             'level': 'INFO',
             'propagate': True,
         },
         'data_import.export': {
-            'handlers': ['export'],
+            'handlers': ['general'],
             'level': 'INFO',
             'propagate': True,
         },
         'data_import.interface': {
-            'handlers': ['interface'],
+            'handlers': ['general'],
             'level': 'INFO',
             'propagate': True,
         },
         'data_import.celery': {
-            'handlers': ['celery'],
+            'handlers': ['general'],
             'level': 'INFO',
             'propagate': True,
         },
@@ -150,38 +150,38 @@ LOGGING = {
             'maxBytes': MAX_LOG_SIZE,
             'backupCount': 5,
         },
-        'import': {
-            'class': 'logging.handlers.RotatingFileHandler',
-            'level': 'INFO',
-            'filename': LOG_DIR + 'data_import_import.log',
-            'formatter': 'normal',
-            'maxBytes': MAX_LOG_SIZE,
-            'backupCount': 5,
-        },
-        'export': {
-            'class': 'logging.handlers.RotatingFileHandler',
-            'level': 'INFO',
-            'filename': LOG_DIR + 'data_import_export.log',
-            'formatter': 'normal',
-            'maxBytes': MAX_LOG_SIZE,
-            'backupCount': 5,
-        },
-        'interface': {
-            'class': 'logging.handlers.RotatingFileHandler',
-            'level': 'INFO',
-            'filename': LOG_DIR + 'data_import_interface.log',
-            'formatter': 'normal',
-            'maxBytes': MAX_LOG_SIZE,
-            'backupCount': 5,
-        },
-        'celery': {
-            'class': 'logging.handlers.RotatingFileHandler',
-            'level': 'INFO',
-            'filename': LOG_DIR + 'data_import_celery.log',
-            'formatter': 'normal',
-            'maxBytes': MAX_LOG_SIZE,
-            'backupCount': 5,
-        },
+        # 'import': {
+        #     'class': 'logging.handlers.RotatingFileHandler',
+        #     'level': 'INFO',
+        #     'filename': LOG_DIR + 'data_import_import.log',
+        #     'formatter': 'normal',
+        #     'maxBytes': MAX_LOG_SIZE,
+        #     'backupCount': 5,
+        # },
+        # 'export': {
+        #     'class': 'logging.handlers.RotatingFileHandler',
+        #     'level': 'INFO',
+        #     'filename': LOG_DIR + 'data_import_export.log',
+        #     'formatter': 'normal',
+        #     'maxBytes': MAX_LOG_SIZE,
+        #     'backupCount': 5,
+        # },
+        # 'interface': {
+        #     'class': 'logging.handlers.RotatingFileHandler',
+        #     'level': 'INFO',
+        #     'filename': LOG_DIR + 'data_import_interface.log',
+        #     'formatter': 'normal',
+        #     'maxBytes': MAX_LOG_SIZE,
+        #     'backupCount': 5,
+        # },
+        # 'celery': {
+        #     'class': 'logging.handlers.RotatingFileHandler',
+        #     'level': 'INFO',
+        #     'filename': LOG_DIR + 'data_import_celery.log',
+        #     'formatter': 'normal',
+        #     'maxBytes': MAX_LOG_SIZE,
+        #     'backupCount': 5,
+        # },
     },
     'formatters': {
         'verbose': {
