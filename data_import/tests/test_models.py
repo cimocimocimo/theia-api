@@ -2,7 +2,7 @@ from django.test import TestCase
 from django.conf import settings
 from django.utils import timezone
 import os, logging
-from datetime import timedelta
+from datetime import timedelta, datetime
 
 from .mixins import LoadTestDataMixin
 
@@ -14,7 +14,7 @@ from ..importers import ProductImporter, InventoryImporter
 log = logging.getLogger('django')
 
 # TODO: Try using django-autofixure for running these tests
-class TestProduct(LoadTestDataMixin, TestCase):
+class TestProduct(TestCase):
 
     @classmethod
     def setUpClass(cls):
@@ -27,6 +27,41 @@ class TestProduct(LoadTestDataMixin, TestCase):
         #     variant.product.in_stock
         # self.assertTrue(.in_stock)
         pass
+
+    def test_available_property(self):
+        one_year = timedelta(days=3*365)
+        year_ago = datetime.now() - one_year
+        next_year = datetime.now() + one_year
+        p_none_dates = Product(
+            style_number='000001',
+        )
+        p_start_date_available = Product(
+            style_number='000002',
+            available_start=year_ago
+        )
+        p_end_date_not_available = Product(
+            style_number='000003',
+            available_end=year_ago
+        )
+        p_start_date_not_available = Product(
+            style_number='000004',
+            available_start=next_year
+        )
+        p_end_date_available = Product(
+            style_number='000005',
+            available_end=next_year
+        )
+        p_both_dates_available = Product(
+            style_number='000006',
+            available_start=year_ago,
+            available_end=next_year,
+        )
+        self.assertTrue(p_none_dates.available)
+        self.assertTrue(p_start_date_available.available)
+        self.assertFalse(p_end_date_not_available.available)
+        self.assertFalse(p_start_date_not_available.available)
+        self.assertTrue(p_end_date_available.available)
+        self.assertTrue(p_both_dates_available.available)
 
 class TestVariant(TestCase):
     @classmethod

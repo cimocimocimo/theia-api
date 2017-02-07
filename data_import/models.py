@@ -1,7 +1,7 @@
 from django.db import models
 from django.conf import settings
 from django.utils import timezone
-from datetime import timedelta
+from datetime import timedelta, datetime
 import re, pytz, csv
 
 from .helpers import replace_spaces_with, forward_slash_to_mixedCase
@@ -104,6 +104,23 @@ class Product(models.Model):
     colors = models.ManyToManyField(Color)
 
     sizes = models.ManyToManyField(Size)
+
+    @property
+    def available(self):
+        # available by default
+        is_available = True
+
+        current_date = datetime.now()
+
+        # if before the start date
+        if self.available_start and self.available_start > current_date:
+            is_available = False
+
+        # but before or on the end date
+        if self.available_end and self.available_end < current_date:
+            is_available = False
+
+        return is_available
 
     def __str__(self):
         return '{} - {} - {}'.format(self.style_number, self.season, self.name)
