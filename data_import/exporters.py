@@ -102,7 +102,7 @@ class InventoryExporter(ExporterBase):
                         'Got invalid upc from redis: {}'.format(upc))
 
             # is the product instock?
-            if self.is_product_in_stock(p):
+            if self.is_product_in_stock(p) and self.is_product_available(p):
                 # ensure the product type is correct
                 if p.product_type != 'Theia Shop':
                     p.product_type = 'Theia Shop'
@@ -126,6 +126,22 @@ class InventoryExporter(ExporterBase):
                 return True
         return False
 
+    def is_product_available(self, p):
+        # get the style number from the tags
+        # tags is returned as a single string. Tags are separated by ', '
+        style_number_pattern = re.compile(r'\d{6}')
+        match = style_number_pattern.search(p.tags)
+        if match:
+            style_number = match.group()
+        else:
+            # product has no style number so we shouldn't update the
+            # inventory
+            return false
+
+        # get the local product object
+        local_prod = Product.objects.get(style_number=style_number)
+        return local_prod.available
+        
 
 # helpers
 def get_style(prod):
