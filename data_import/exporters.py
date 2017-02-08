@@ -127,6 +127,8 @@ class InventoryExporter(ExporterBase):
         return False
 
     def is_product_available(self, p):
+        return True
+
         # get the style number from the tags
         # tags is returned as a single string. Tags are separated by ', '
         style_number_pattern = re.compile(r'\d{6}')
