@@ -110,7 +110,7 @@ STATIC_ROOT = os.path.join(BASE_DIR, 'static')
 
 # Logging
 MAX_LOG_SIZE = 1024*1000*5 # 5MB in bytes
-LOG_DIR = '/opt/python/log/'
+LOG_DIR = '/opt/python/log/app-logs/'
 LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,
