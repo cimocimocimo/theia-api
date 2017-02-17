@@ -12,11 +12,21 @@ import logging
 
 log = logging.getLogger('django')
 
+class ColorNameCorrection(models.Model):
+    incorrect = models.CharField(max_length=64, unique=True)
+    correct = models.CharField(max_length=64)
+
+    def __str__(self):
+        return '{} -> {}'.format(self.incorrect, self.correct)
+
 class Color(models.Model):
     # name from Momentis database
     momentis_name = models.CharField(max_length=64)
     name = models.CharField(max_length=64)
     code = models.CharField(max_length=8, unique=True)
+    is_correct = models.NullBooleanField(blank=True, null=True)
+    correction = models.OneToOneField(ColorNameCorrection,
+                                      blank=True, null=True)
 
     def __str__(self):
         return '{} - {}'.format(self.name, self.code)
@@ -44,25 +54,10 @@ class Color(models.Model):
         return name
 
     def save(self, *args, **kwargs):
-        # create the corrected color name
-        self.name = self.correct_color_name(self.momentis_name)
+        if not self.is_correct:
+            # create the corrected color name
+            self.name = self.correct_color_name(self.momentis_name)
         super().save(*args, **kwargs)
-
-# TODO: Create a fixture and import this on deploy
-color_corrections = {"blk/watermelon": "black/watermelon",
-                     "blush/mid": "blush/midnight",
-                     "prb  - prussian blue": "prussian blue",
-                     "blk/midnight": "black/midnight",
-                     "blk pewter": "black pewter",
-                     "blk/teal": "black/teal",
-                     "blk/gold": "black/gold",
-                     "champ/silver": "champagne/silver",
-                     "creme": "cream",
-                     "blk": 'black'}
-
-class ColorNameCorrection(models.Model):
-    incorrect = models.CharField(max_length=64, unique=True)
-    correct = models.CharField(max_length=64)
 
 class Size(models.Model):
     name = models.CharField(max_length=8)

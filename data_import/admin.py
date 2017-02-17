@@ -5,7 +5,18 @@ from .models import Color, ColorNameCorrection, Size, Product, Variant
 # Register your models here.
 @admin.register(Color)
 class ColorAdmin(admin.ModelAdmin):
-    pass
+    list_display = ('momentis_name',
+                    'name',
+                    'code',
+                    'is_correct',
+                    'correction')
+    list_editable = ('is_correct',
+                     'correction')
+    search_fields = ['momentis_name',
+                    'name',
+                    'code']
+    readonly_fields = ('momentis_name',
+                    'code')
 
 @admin.register(ColorNameCorrection)
 class ColorNameCorrectionAdmin(admin.ModelAdmin):
