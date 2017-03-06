@@ -65,6 +65,8 @@ class InventoryExporter(ExporterBase):
         # Shopify to get the objects and cache them in redis
         products = self.shopify.get_products()
 
+        numb_products_updated = 0
+
         # loop over the products
         for p in products:
             save_needed = False
@@ -82,9 +84,7 @@ class InventoryExporter(ExporterBase):
                     upc = self.get_upc_by_sku(v.sku)
 
                     if upc:
-                        print('got upc: {} with sku: {}'.format(upc, v.sku))
                         v.barcode = upc
-                        print('barcode: {}'.format(v.barcode))
                         save_needed = True
                     else:
                         # no upc so we can't find the quantity by upc..
@@ -115,10 +115,12 @@ class InventoryExporter(ExporterBase):
                     save_needed = True
 
             if save_needed:
-                print('saving product: {}'.format(p.title))
+                numb_products_updated += 1
                 p.save()
             else:
-                print('skipping')
+                pass
+
+        log.info('Shopify Products Updated: {}'.format(numb_products_updated))
 
     def is_product_in_stock(self, p):
         for v in p.variants:
