@@ -12,7 +12,7 @@ from .importers import ProductImporter, InventoryImporter
 from .interfaces import DropboxInterface, ShopifyInterface
 from .models import Product, Variant, Company, ExportType, ImportFile
 
-log = logging.getLogger(__name__).getChild('celery')
+log = logging.getLogger('django')
 
 LOCK_EXPIRE = 60 * 10 # Lock expires in 10 minutes
 

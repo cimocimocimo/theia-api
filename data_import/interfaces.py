@@ -3,7 +3,7 @@ from ratelimit import rate_limited
 from datetime import timedelta
 import os, logging
 
-log = logging.getLogger(__name__).getChild('interface')
+log = logging.getLogger('django')
 
 class DropboxInterface:
     import dropbox, redis

@@ -6,7 +6,7 @@ from .interfaces import RedisInterface
 from .models import Color, Size, Product, Variant, Inventory, ImportFile
 from .helpers import *
 
-log = logging.getLogger(__name__).getChild('import')
+log = logging.getLogger('django')
 
 """
 These import the Product and Inventory CSV files

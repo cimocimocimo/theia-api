@@ -11,7 +11,7 @@ from .exporters import InventoryExporter
 # from celery import chain, group
 # from .tasks import load_import_file_meta, import_data, update_shop_inventory
 
-log = logging.getLogger(__name__)
+log = logging.getLogger('django')
 
 class Controller:
     """

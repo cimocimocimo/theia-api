@@ -11,7 +11,7 @@ from .models import Product, Variant, Inventory
 from .helpers import *
 import re, logging
 
-log = logging.getLogger(__name__).getChild('export')
+log = logging.getLogger('django')
 
 class ExporterBase:
     def __init__(self):
