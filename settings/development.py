@@ -24,11 +24,6 @@ DATABASES = {
     }
 }
 
-# Logging
-for name, handler in LOGGING['handlers'].items():
-    # move the log file to the project directory
-    handler['filename'] = handler['filename'].split('/')[-1]
-
 # Redis
 REDIS_DB = os.environ['DEV_REDIS_DB']
 if 'DEV_REDIS_DOMAIN' in os.environ:
