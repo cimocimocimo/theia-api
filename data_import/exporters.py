@@ -102,7 +102,7 @@ class InventoryExporter(ExporterBase):
                         'Got invalid upc from redis: {}'.format(upc))
 
             # is the product instock?
-            if self.is_product_in_stock(p):
+            if self.is_product_in_stock(p) and self.is_product_for_sale(p):
                 # ensure the product type is correct
                 if p.product_type != 'Theia Shop':
                     p.product_type = 'Theia Shop'
@@ -127,6 +127,14 @@ class InventoryExporter(ExporterBase):
             if v.inventory_quantity and v.inventory_quantity > 0:
                 return True
         return False
+
+    def is_product_for_sale(self, p):
+        # get the tags
+        # if 'Bridal' is in tags then return false
+        if 'Bridal' in p.tags:
+            return False
+        else:
+            return True
 
     def is_product_available(self, p):
         # get the style number from the tags
