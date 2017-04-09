@@ -175,6 +175,8 @@ class Variant(models.Model):
 
 class Company(models.Model):
     name = models.CharField(unique=True, max_length=64)
+    def __str__(self):
+        return '{}'.format(self.name)
 
 class ExportType(models.Model):
     name = models.CharField(unique=True, max_length=64)

@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import Color, ColorNameCorrection, Size, Product, Variant
+from .models import Color, ColorNameCorrection, Size, Product, Variant, Company
 
 # Register your models here.
 @admin.register(Color)
@@ -33,3 +33,12 @@ class ProductAdmin(admin.ModelAdmin):
 @admin.register(Variant)
 class VariantAdmin(admin.ModelAdmin):
     pass
+
+@admin.register(Company)
+class CompanyAdmin(admin.ModelAdmin):
+    # Company name should not be editable
+    readonly_fields = ('name',)
+
+    def has_add_permission(self, request):
+        return False
+
