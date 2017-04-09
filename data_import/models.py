@@ -180,6 +180,22 @@ class Company(models.Model):
     shopify_api_key = models.CharField(max_length=256, blank=True, null=True)
     shopify_password = models.CharField(max_length=256, blank=True, null=True)
 
+    @property
+    def has_shop_url(self):
+        if (self.shopify_shop_name and self.shopify_api_key
+            and self.shopify_password):
+            return True
+        return False
+
+    @property
+    def shop_url(self):
+        if (self.has_shop_url):
+            return 'https://{}:{}@{}.myshopify.com/admin'.format(
+                self.shopify_api_key,
+                self.shopify_password,
+                self.shopify_shop_name)
+        return False
+
     def __str__(self):
         return '{}'.format(self.name)
 

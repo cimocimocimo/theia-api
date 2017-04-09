@@ -4,8 +4,6 @@ from django.utils import timezone
 import os, logging
 from datetime import timedelta, datetime
 
-from .mixins import LoadTestDataMixin
-
 from ..interfaces import DropboxInterface
 from ..models import (Product, Variant, Color, ColorNameCorrection, Size,
                       ImportFile, Company, ExportType)
@@ -292,3 +290,30 @@ class ColorTest(TestCase):
             # create color with first pair color name
             color = Color(name=pair[0])
             self.assertEqual(color.url_safe_name, pair[1])
+
+class CompanyTest(TestCase):
+    def test_has_shopify_url(self):
+        no_url = Company.objects.create(
+            name='NoUrl')
+        has_url = Company.objects.create(
+            name='HasUrl',
+            shopify_shop_name='shopname',
+            shopify_api_key='apikey',
+            shopify_password='password')
+        has_partial_url = Company.objects.create(
+            name='HasPartialUrl',
+            shopify_password='password')
+
+        self.assertFalse(no_url.has_shop_url)
+        self.assertTrue(has_url.has_shop_url)
+        self.assertFalse(has_partial_url.has_shop_url)
+
+    def test_get_shopify_url(self):
+        some_company = Company.objects.create(
+            name='SomeCompany',
+            shopify_shop_name='shopname',
+            shopify_api_key='apikey',
+            shopify_password='password')
+
+        self.assertEqual('https://apikey:password@shopname.myshopify.com/admin',
+                         some_company.shop_url)
