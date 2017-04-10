@@ -28,6 +28,7 @@ class InventoryExporter(ExporterBase):
         self.redis = RedisInterface('') # TODO: remove this when not needed.
         self.shopify = ShopifyInterface(company.shop_url)
         self.inventory = Inventory(company.name)
+        self.company = company
         super().__init__()
 
     # TODO: remove this once we are adding products to shopify automatically.
@@ -97,18 +98,20 @@ class InventoryExporter(ExporterBase):
                     raise Exception(
                         'Got invalid upc from redis: {}'.format(upc))
 
-            # is the product instock?
-            if self.is_product_in_stock(p) and self.is_product_for_sale(p):
-                # ensure the product type is correct
-                if p.product_type != 'Theia Shop':
-                    p.product_type = 'Theia Shop'
-                    save_needed = True
+            # update the product collection for Theia only
+            if self.company.name == 'Theia':
+                # is the product instock?
+                if self.is_product_in_stock(p) and self.is_product_for_sale(p):
+                    # ensure the product type is correct
+                    if p.product_type != 'Theia Shop':
+                        p.product_type = 'Theia Shop'
+                        save_needed = True
 
-            else:
-                # out of stock, make sure it goes in the lookbook
-                if p.product_type != 'Theia Collection':
-                    p.product_type = 'Theia Collection'
-                    save_needed = True
+                else:
+                    # out of stock, make sure it goes in the lookbook
+                    if p.product_type != 'Theia Collection':
+                        p.product_type = 'Theia Collection'
+                        save_needed = True
 
             if save_needed:
                 numb_products_updated += 1
