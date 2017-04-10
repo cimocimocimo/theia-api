@@ -23,15 +23,11 @@ class ExporterBase:
 class InventoryExporter(ExporterBase):
     """
     Export the latest inventory data to the shops for each company.
-
-    TODO: Get companies from the database - just Theia for now
     """
-    def __init__(self):
-        # TODO: Get the company name by looping over the companies
-        # TODO: Associate the Shopify login info with the company somehow. (use a dict in settings?)
+    def __init__(self, company):
         self.redis = RedisInterface('') # TODO: remove this when not needed.
-        self.shopify = ShopifyInterface()
-        self.inventory = Inventory('Theia')
+        self.shopify = ShopifyInterface(company.shop_url)
+        self.inventory = Inventory(company.name)
         super().__init__()
 
     # TODO: remove this once we are adding products to shopify automatically.

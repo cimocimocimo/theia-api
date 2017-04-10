@@ -156,9 +156,16 @@ class DropboxInterface:
 class ShopifyInterface:
     import shopify
 
-    def __init__(self):
+    has_fetched_products = False
+    has_fetched_variants = False
+
+    def __init__(self, shopify_shop_url):
         "setup connection to Shopify"
-        self.shopify.ShopifyResource.set_site(settings.SHOPIFY_SHOP_URL)
+        if shopify_shop_url:
+            self.shopify.ShopifyResource.set_site(shopify_shop_url)
+        else:
+            return
+
         self._get_products_from_shopify()
         self.variants = list()
         for prod in self.products:

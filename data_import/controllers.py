@@ -173,40 +173,80 @@ class Controller:
         # ImportFile.delete() is NOT called in this case.
         ImportFile.objects.all().delete()
 
-    def import_shop_data(self):
+    def _get_companies_or_none(self, names=None):
+        if names:
+            try:
+                companies = Company.objects.filter(name__in=names)
+            except Exception as e:
+                log.exception(e)
+                raise
+        else:
+            companies = Company.objects.all()
+
+        if len(companies):
+            return companies
+        else:
+            return None
+
+    def import_shop_data(self, company_name):
+        try:
+            companies = self._get_companies_or_none(company_name)
+        except:
+            raise
+
         # get all the products from the shopify store
-        shopify = ShopifyInterface()
-        redis = RedisInterface()
-        products = shopify.get_products()
-        for p in products:
-            # TODO: Store the product dict in redis
-            # p.to_dict()
-            pass
+        for c in companies:
+            shopify = ShopifyInterface(c.shop_url)
+            redis = RedisInterface()
+            products = shopify.get_products()
+            for p in products:
+                # TODO: Store the product dict in redis
+                # p.to_dict()
+                pass
 
-    def update_shop_inventory(self):
-        exporter = InventoryExporter()
-        exporter.export_data()
+    def update_shop_inventory(self, company_name=None):
+        try:
+            companies = self._get_companies_or_none(company_name)
+        except:
+            raise
 
-    def reset_shop_inventory(self):
-        shopify = ShopifyInterface()
-        products = shopify.get_products()
-        for p in products:
-            save_needed = False
-            if p.product_type == 'Theia Shop':
-                p.product_type = 'Theia Collection'
-                update_needed = True
-            for v in p.variants:
-                if v.inventory_quantity:
-                    save_needed = True
-                    v.inventory_quantity = 0
-                if v.barcode:
-                    save_needed = True
-                    v.barcode = ''
-            if save_needed:
-                print('saving product: {}'.format(p.title))
-                print(p.save())
-            else:
-                print('skipping')
+        # loop over all the companies in the database
+        for c in companies:
+            # create an Exporter for each company.
+            if not c.has_shop_url:
+                continue
+            exporter = InventoryExporter(c)
+            exporter.export_data()
+
+    def reset_shop_inventory(self, company_name=None):
+        try:
+            companies = self._get_companies_or_none(company_name)
+        except:
+            raise
+
+        for c in companies:
+            shopify = ShopifyInterface(c.shop_url)
+            products = shopify.get_products()
+            for p in products:
+                save_needed = False
+                # only update collection for Theia
+                if c.name == 'Theia':
+                    if p.product_type == 'Theia Shop':
+                        p.product_type = 'Theia Collection'
+                        update_needed = True
+                for v in p.variants:
+                    if v.inventory_quantity:
+                        save_needed = True
+                        v.inventory_quantity = 0
+                    # No need to update barcodes any longer
+                    # if v.barcode:
+                    #     save_needed = True
+                    #     v.barcode = ''
+                if save_needed:
+                    print('saving product: {}'.format(p.title))
+                    print(p.save())
+                else:
+                    print('skipping')
 
     def full_import_export(self, account=None, import_filter=None):
         self.load_import_files(account)

@@ -132,7 +132,7 @@ def full_import_export_task(self, account=None, companies=None):
 
     c = Controller()
     try:
-        c.full_import_export(account, import_filter=['Theia'])
+        c.full_import_export(account)
     except Exception as e:
         log.exception(e)
         self.retry(e)

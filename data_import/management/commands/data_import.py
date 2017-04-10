@@ -23,7 +23,7 @@ class Command(BaseCommand):
         # 2nd is a flag and optional
         parser.add_argument(
             '-f',
-            '--company_filter',
+            '--company_names',
             nargs='+',
             type=str)
 
@@ -35,17 +35,17 @@ class Command(BaseCommand):
         if 'subcommand' in options:
             subcommand = options['subcommand']
 
-        company_filter = None
-        if 'company_filter' in options:
-            company_filter = options['company_filter']
+        company_names = None
+        if 'company_names' in options:
+            company_names = options['company_names']
 
         if subcommand == 'import':
             self.stdout.write('Importing data')
-            controller.import_latest_data(company_filter)
+            controller.import_latest_data(company_names)
 
         elif subcommand == 'export':
             self.stdout.write('Exporting data')
-            controller.export_data(company_filter)
+            controller.export_data(company_names)
 
         elif subcommand == 'load_import_files':
             self.stdout.write('Loading import files from Dropbox')
@@ -62,16 +62,17 @@ class Command(BaseCommand):
 
         elif subcommand == 'import_shop_data':
             self.stdout.write('Importing data from shop')
-            controller.import_shop_data()
+            controller.import_shop_data(company_names)
 
         elif subcommand == 'update_shop_inventory':
             self.stdout.write('Updating shop inventory')
-            controller.update_shop_inventory()
+            controller.update_shop_inventory(company_names)
 
         elif subcommand == 'reset_shop_inventory':
             self.stdout.write('Resetting shop inventory to zero and deleting all the UPC codes')
-            controller.reset_shop_inventory()
+            print(company_names)
+            controller.reset_shop_inventory(company_names)
 
         else:
             self.stdout.write('Running full data Import/Export')
-            controller.full_import_export(company_filter)
+            controller.full_import_export(company_names)
