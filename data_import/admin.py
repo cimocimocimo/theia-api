@@ -9,14 +9,14 @@ class ColorAdmin(admin.ModelAdmin):
                     'name',
                     'code',
                     'is_correct',
-                    'correction')
+                    'correction',)
     list_editable = ('is_correct',
-                     'correction')
+                     'correction',)
     search_fields = ['momentis_name',
-                    'name',
-                    'code']
+                     'name',
+                     'code',]
     readonly_fields = ('momentis_name',
-                    'code')
+                       'code',)
 
 @admin.register(ColorNameCorrection)
 class ColorNameCorrectionAdmin(admin.ModelAdmin):
@@ -28,7 +28,16 @@ class SizeAdmin(admin.ModelAdmin):
 
 @admin.register(Product)
 class ProductAdmin(admin.ModelAdmin):
-    pass
+    list_display = ('style_number',
+                    'name',
+                    'category',
+                    'division',)
+    list_filter = ('division',
+                   'category',)
+    search_fields = ['style_number',
+                     'name',
+                     'description',
+                     'division',]
 
 @admin.register(Variant)
 class VariantAdmin(admin.ModelAdmin):
