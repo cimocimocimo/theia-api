@@ -15,18 +15,9 @@ import os
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
+SECRET_KEY = os.environ['DJANGO_SECRET_KEY']
 
-# Quick-start development settings - unsuitable for production
-# See https://docs.djangoproject.com/en/1.10/howto/deployment/checklist/
-
-# SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'vzy6f$&qlp9pr(!@$xv+9+92=t7nb5bv=@qp$p&_dkeiwb(yd2'
-
-# SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
-
-ALLOWED_HOSTS = []
-
+ADMINS = [('Aaron', 'aaron@cimolini.com')]
 
 # Application definition
 
@@ -37,6 +28,14 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+
+    # 3rd Party Apps
+    'django_extensions',
+
+    # Local Apps
+    'core.apps.CoreConfig',
+    'webhook.apps.WebhookConfig',
+    'data_import.apps.DataImportConfig',
 ]
 
 MIDDLEWARE = [
@@ -49,7 +48,7 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 
-ROOT_URLCONF = 'api.urls'
+ROOT_URLCONF = 'urls'
 
 TEMPLATES = [
     {
@@ -67,18 +66,7 @@ TEMPLATES = [
     },
 ]
 
-WSGI_APPLICATION = 'api.wsgi.application'
-
-
-# Database
-# https://docs.djangoproject.com/en/1.10/ref/settings/#databases
-
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': os.path.join(BASE_DIR, 'db.sqlite3'),
-    }
-}
+WSGI_APPLICATION = 'wsgi.application'
 
 
 # Password validation
@@ -118,3 +106,66 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/1.10/howto/static-files/
 
 STATIC_URL = '/static/'
+STATIC_ROOT = os.path.join(BASE_DIR, 'static')
+
+# Logging
+MAX_LOG_SIZE = 1024*1000*5 # 5MB in bytes
+LOG_DIR = os.environ.get('DJANGO_LOG_DIR', '/opt/python/log/')
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'loggers': {
+        'django': {
+            'handlers': ['file'],
+            'level': 'INFO',
+            'propagate': True,
+        },
+    },
+    'handlers': {
+        'file': {
+            'class': 'logging.FileHandler',
+            'level': 'INFO',
+            'filename': LOG_DIR + 'django.log',
+            'formatter': 'normal',
+        },
+    },
+    'formatters': {
+        'verbose': {
+            'format': '%(levelname)s %(asctime)s %(module)s %(process)d %(thread)d\n%(message)s'
+        },
+        'normal': {
+            'format': '%(levelname)s %(asctime)s\n%(message)s'
+        },
+    },
+}
+
+# Redis
+REDIS_PROTOCOL = 'redis://'
+REDIS_DOMAIN = 'theia-api-dev.iby5d3.0001.use1.cache.amazonaws.com'
+REDIS_PORT = 6379
+
+# Dropbox settings
+DROPBOX_APP_KEY = os.environ['DROPBOX_APP_KEY']
+DROPBOX_APP_SECRET = os.environ['DROPBOX_APP_SECRET']
+DROPBOX_TOKEN = os.environ['DROPBOX_TOKEN']
+DROPBOX_EXPORT_FOLDER = os.environ.setdefault('DROPBOX_EXPORT_FOLDER', '/e-commerce')
+
+# Celery
+CELERY_ACCEPT_CONTENT = ['application/json']
+CELERY_TASK_SERIALIZER = 'json'
+CELERY_RESULT_SERIALIZER = 'json'
+CELERY_TIMEZONE = 'America/Montreal'
+
+# Cache
+CACHES = {
+    "default": {
+        "BACKEND": "django_redis.cache.RedisCache",
+        "OPTIONS": {
+            "CLIENT_CLASS": "django_redis.client.DefaultClient",
+        }
+    }
+}
+
+# Sessions
+SESSION_ENGINE = "django.contrib.sessions.backends.cache"
+SESSION_CACHE_ALIAS = "default"
