@@ -225,6 +225,8 @@ class Controller:
             raise
 
         for c in companies:
+            if c.shop_url == False:
+                continue
             shopify = ShopifyInterface(c.shop_url)
             products = shopify.get_products()
             for p in products:
