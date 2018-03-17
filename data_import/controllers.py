@@ -1,5 +1,9 @@
-import logging
+import sys, logging
 from django.conf import settings
+from pprint import pprint
+from datetime import datetime, timedelta
+
+import dropbox
 
 from .interfaces import DropboxInterface, ShopifyInterface, RedisInterface
 from .models import (Product, Variant, Color, Size,
@@ -20,17 +24,85 @@ class Controller:
 
     def __init__(self):
         """Init Controller"""
-        log.debug('Controller initialized:')
-        log.debug(self)
+        log.debug('Controller initialized')
+
+    def get_import_data(self, account=None):
+        """Fetch import files from dropbox
+
+        This is a new function and is not currently being used. Should replace
+        load_import_files() when ready.
+        """
+        dropbox_interface = DropboxInterface()
+        entries = dropbox_interface.list_files(settings.DROPBOX_EXPORT_FOLDER,
+                                               account)
+
+        # get current datetime
+        now = datetime.now()
+        expiry_date = now + timedelta(-7)
+        recent_files = []
+        import_metadata = {}
+
+        for e in entries:
+            # skip non-files
+            if type(e) != dropbox.files.FileMetadata:
+                continue
+
+            # delete files older than 2 weeks
+            if e.server_modified < expiry_date:
+                print('deleting')
+                pprint(e)
+                dropbox_interface.delete_file(e.path_lower)
+
+            else:
+                recent_files.append(e)
+
+
+        # sort the recent files by company then by filetype
+        # only save the most recent file of each
+        for e in recent_files:
+            # parse the filename for company and export type
+            c, t = ImportFile.parse_company_export_type(e.name)
+
+            # create the company and type keys if they don't exist
+            if c not in import_metadata:
+                # initialize the keys and save the entry
+                import_metadata[c] = {t: e}
+                # first time this key has been seen
+                continue
+
+            if t not in import_metadata[c]:
+                # initialize the keys and save the entry
+                import_metadata[c][t] = e
+                # first time this key has been seen
+                continue
+
+            # check for a file in the import_metadata spot already
+            if import_metadata[c][t].server_modified < e.server_modified:
+                import_metadata[c][t] = e
+
+
+        for c, _type in import_metadata.items():
+            pprint(c)
+            for t, e in _type.items():
+                pprint(t)
+                pprint(e.name)
+                pprint(str(e.server_modified))
+
+            # pprint(import_metadata)
+        # get the last 2 weeks of file metadata
+        # delete files on dropbox older than a month
+
 
     def load_import_files(self, account=None):
 
         # TODO: Refactor this mess.
         dropbox_interface = DropboxInterface()
 
-        entries = dropbox_interface.list_files(settings.DROPBOX_EXPORT_FOLDER,
+        # get directory list of files in dropbox
+        entries = dropbox_interface.list_new_deleted_files(settings.DROPBOX_EXPORT_FOLDER,
                                                account)
 
+        # make sure we have some files to import
         if entries == None:
             log.warning('No data files found in dropbox folder {}.'.format(
                 settings.DROPBOX_EXPORT_FOLDER))
@@ -41,14 +113,14 @@ class Controller:
         log.debug('Number of added entries: {}\nNumber of deleted entries: {}'
                   .format(len(entries['added']), len(entries['deleted'])))
 
-        log.debug('Added entries:')
-        for e in entries['added']:
-            log.debug('name: {}, modified: {}, id: {}'
-                      .format(e.name, e.server_modified, e.id))
-        log.debug('Deleted entries:')
-        for e in entries['deleted']:
-            log.debug('name: {}'
-                      .format(e.name))
+        # log.debug('Added entries:')
+        # for e in entries['added']:
+        #     log.debug('name: {}, modified: {}, id: {}'
+        #               .format(e.name, e.server_modified, e.id))
+        # log.debug('Deleted entries:')
+        # for e in entries['deleted']:
+        #     log.debug('name: {}'
+        #               .format(e.name))
 
         # create ImportFile objects for all the entries
         for e in entries['added']:
@@ -111,14 +183,17 @@ class Controller:
     def import_latest_data(self, import_filter=None):
         """ Import most recent, unimported files """
 
+        export_types = ExportType.objects.all()
+        companies_to_import = Company.objects.filter(should_import=True)
+
         # get the latest import files for each of companies
         files_to_import = [
             c.importfile_set.filter(
                 export_type=t,
                 import_status=ImportFile.NOT_IMPORTED
             ).latest()
-            for t in ExportType.objects.all()
-            for c in Company.objects.all()]
+            for t in export_types
+            for c in companies_to_import]
 
         importers = {
             ImportFile.PRODUCT: ProductImporter(),
@@ -215,6 +290,10 @@ class Controller:
             # create an Exporter for each company.
             if not c.has_shop_url:
                 continue
+
+            if not c.should_import:
+                continue
+
             exporter = InventoryExporter(c)
             exporter.export_data()
 

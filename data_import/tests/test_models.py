@@ -194,7 +194,7 @@ class ImportFileTest(TestCase):
 
         # get the file listing of the entire dropbox
         dropbox = DropboxInterface()
-        entries = dropbox.list_files(settings.DROPBOX_EXPORT_FOLDER)
+        entries = dropbox.list_new_deleted_files(settings.DROPBOX_EXPORT_FOLDER)
 
         for e in entries['added']:
             # TODO: Remove this after we clean out the .osiris files

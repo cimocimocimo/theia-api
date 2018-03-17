@@ -1,7 +1,9 @@
 from django.conf import settings
 from ratelimit import rate_limited
 from datetime import timedelta
-import os, logging
+import sys, os, logging
+
+from pprint import pprint
 
 log = logging.getLogger('django')
 
@@ -41,7 +43,7 @@ class DropboxInterface:
         return response.text
 
     def list_files(self, path='/', account=None):
-        log.debug('calling list_files()')
+        """Gets all files from dropbox"""
 
         # get cursor for account or None if account is None
         cursor = self._get_cursor_for_account(account)
@@ -51,6 +53,32 @@ class DropboxInterface:
         try:
             entries, cursor = self._get_result_entries(
                 cursor, path=path, recursive=True)
+
+        except Exception as e:
+            log.debug(e)
+            return None
+
+        if account and cursor:
+            self._save_cursor_for_account(account, cursor)
+
+        if entries:
+            return entries
+        else:
+            return None
+
+    def list_new_deleted_files(self, path='/', account=None):
+        # get cursor for account or None if account is None
+        cursor = self._get_cursor_for_account(account)
+
+        # first try continue listing the folder. If the cursor is invalid or
+        # None then we get an exception and just list the full folder.
+        try:
+            entries, cursor = self._get_result_entries(
+                cursor, path=path, recursive=True)
+
+            pprint(cursor)
+            for e in entries:
+                pprint(e.name)
 
         except Exception as e:
             log.debug(e)
@@ -121,12 +149,8 @@ class DropboxInterface:
 
             entries.extend(result.entries)
 
-            log.debug(result)
             cursor = result.cursor
             has_more = result.has_more
-
-        log.debug('-------- entries -------')
-        log.debug(entries)
 
         return entries, cursor
 

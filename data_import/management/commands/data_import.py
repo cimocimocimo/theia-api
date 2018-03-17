@@ -18,7 +18,8 @@ class Command(BaseCommand):
                      'reset_local_products',
                      'import_shop_data',
                      'update_shop_inventory',
-                     'reset_shop_inventory',])
+                     'reset_shop_inventory',
+                     'get_import_data',])
 
         # 2nd is a flag and optional
         parser.add_argument(
@@ -50,6 +51,10 @@ class Command(BaseCommand):
         elif subcommand == 'load_import_files':
             self.stdout.write('Loading import files from Dropbox')
             controller.load_import_files()
+
+        elif subcommand == 'get_import_data':
+            self.stdout.write('Loading import files from Dropbox')
+            controller.get_import_data()
 
         elif subcommand == 'reset_import_files':
             self.stdout.write('Resetting import files')
