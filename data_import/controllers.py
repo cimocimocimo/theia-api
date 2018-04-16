@@ -49,9 +49,10 @@ class Controller:
 
             # delete files older than 2 weeks
             if e.server_modified < expiry_date:
-                print('deleting')
-                pprint(e)
                 dropbox_interface.delete_file(e.path_lower)
+
+                # also delete the associated DB entry
+                ImportFile.objects.filter(dropbox_id=e.id).delete()
 
             else:
                 recent_files.append(e)
