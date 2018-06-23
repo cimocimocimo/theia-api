@@ -74,8 +74,14 @@ class Command(BaseCommand):
             controller.update_shop_inventory(company_names)
 
         elif subcommand == 'reset_shop_inventory':
-            self.stdout.write('Resetting shop inventory to zero and deleting all the UPC codes')
+            self.stdout.write('Resetting shop inventory.')
             print(company_names)
+            if not company_names:
+                should_continue = input('Continue? [y/N]: ')
+                print(should_continue)
+                if not should_continue == 'y':
+                    return
+                print('deleting inventory from ALL stores')
             controller.reset_shop_inventory(company_names)
 
         else:
