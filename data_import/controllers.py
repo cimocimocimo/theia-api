@@ -201,7 +201,12 @@ class Controller:
             ImportFile.INVENTORY: InventoryImporter()}
 
         for f in files_to_import:
+            # Skip if import filter was passed and the company is not in it.
             if import_filter and f.company.name not in import_filter:
+                continue
+            # Skip over product files
+            elif f.export_type.name == ImportFile.PRODUCT:
+                print('skipping product data export file.')
                 continue
             else:
                 importers[f.export_type.name].import_data(f)
