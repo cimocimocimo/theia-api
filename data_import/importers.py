@@ -187,25 +187,15 @@ class ProductImporter(ImporterBase):
             super().post_import_data()
 
 class InventoryImporter(ImporterBase):
-    missing_upcs = 0
-
     """
     Import the inventory to redis
 
     set of the UPCS
 
     hash of each data line keyed by UPC
-
-    python redis methods to use
-    .hget(name, key) - returns value for hash key
-    .hgetall(name) - returns dict
-    .hset(name, key, value) - individually set keys/values for hash
-    .hmset(name, mapping [dict]) - sets multiple values for hash with name
-    .expire(name, seconds) - seconds can be an integer or timedelta obj.
-
-    .sadd(name, value) - add value to set
-
     """
+
+    missing_upcs = 0
 
     def __init__(self):
         super().__init__()

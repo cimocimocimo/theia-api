@@ -242,6 +242,7 @@ class ImportFile(models.Model):
     @classmethod
     def parse_company_export_type(cls, filename):
         """Parse the company and export_type from filename."""
+
         match = cls.type_company_pattern.match(filename)
         if match:
             company = match.group(2)
@@ -265,8 +266,6 @@ class ImportFile(models.Model):
 
         # if server modified is within 12 hours from now
         self.server_modified = self.server_modified.replace(tzinfo=pytz.UTC)
-        print('server modified: {}'.format(self.server_modified))
-        print(self.filename)
         if self.server_modified > twelve_hours_ago:
             # download the file contents
             content = self._get_content_from_dropbox()
@@ -384,6 +383,17 @@ class CSVRows:
 
 # redis models
 class RedisModel:
+    """
+    Model for storing sets of objects in Redis
+
+    python redis methods to use
+    .hget(name, key) - returns value for hash key
+    .hgetall(name) - returns dict
+    .hset(name, key, value) - individually set keys/values for hash
+    .hmset(name, mapping [dict]) - sets multiple values for hash with name
+    .expire(name, seconds) - seconds can be an integer or timedelta obj.
+    .sadd(name, value) - add value to set
+    """
     def __init__(self):
         self.redis = RedisInterface()
         self.items = dict()
