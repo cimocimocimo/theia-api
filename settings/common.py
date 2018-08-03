@@ -36,6 +36,7 @@ INSTALLED_APPS = [
     'core.apps.CoreConfig',
     'webhook.apps.WebhookConfig',
     'data_import.apps.DataImportConfig',
+    'dropbox_import.apps.DropboxImportConfig',
 ]
 
 MIDDLEWARE = [
