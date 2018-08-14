@@ -1,51 +1,13 @@
-from celery import shared_task, chain, group
-from celery.five import monotonic
-from contextlib import contextmanager
-from django.core.cache import cache
-from hashlib import md5
-from django.conf import settings
+from celery import shared_task
 import logging
 
 from .controllers import Controller
 
 from .importers import ProductImporter, InventoryImporter
-from .interfaces import DropboxInterface, ShopifyInterface
+from .interfaces import DropboxInterface, ShopifyInterface, RedisInterface
 from .models import Product, Variant, Company, ExportType, ImportFile
 
 log = logging.getLogger('django')
-
-LOCK_EXPIRE = 60 * 10 # Lock expires in 10 minutes
-
-@contextmanager
-def task_lock(lock_id, oid):
-    log.debug('Getting lock: lock_id: {}, oid: {}'.format(lock_id, oid))
-
-    timeout_at = monotonic() + LOCK_EXPIRE - 3
-    status = cache.add(lock_id, oid, LOCK_EXPIRE)
-
-    try:
-        yield status
-    finally:
-        # memcache delete is very slow, but we have to use it to take
-        # advantage of using add() for atomic locking
-        if monotonic() < timeout_at:
-            # don't release the lock if we exceeded the timeout
-            # to lessen the chance of releasing an expired lock
-            # owned by someone else.
-            log.debug('Releasing lock_id: {}'.format(lock_id))
-            cache.delete(lock_id)
-
-def get_task_lock_id(task_name, task_sig):
-    """
-    Get a formatted lock id string.
-
-    task_name: name of the task
-    task_sig: unique string built from the task arguments, should be identical
-    for each set of arguments to the task.
-    """
-    task_hexdigest = md5(task_sig.encode('utf-8')).hexdigest()
-    return '{0}-lock-{1}'.format(task_name, task_hexdigest)
-
 
 def handle_notification(data):
     """Process notification data from dropbox and start import tasks
@@ -58,10 +20,16 @@ def handle_notification(data):
 
     log.debug('accounts: {}'.format(accounts))
 
-    # TODO: We are working with a single Dropbox account so we should remove this later
     # start task process for each account
     for account in accounts:
-        full_import_export_task.delay(account)
+        testing_func.delay(account)
+
+
+@shared_task(bind=True)
+def testing_func(self, account=None):
+    log.debug('doing dropbox stuff')
+
+
 
 @shared_task(bind=True, default_retry_delay=60, max_retries=5, time_limit=60*10)
 def load_import_file_meta(self, account=None):

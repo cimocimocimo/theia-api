@@ -33,7 +33,7 @@ def process_notification(request):
 
     # pass data into celery task
     from .tasks import handle_notification
-    handle_notification(data)
+    handle_notification.delay(data)
 
     return HttpResponse('OK')
 

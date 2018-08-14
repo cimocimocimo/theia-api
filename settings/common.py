@@ -35,7 +35,6 @@ INSTALLED_APPS = [
     # Local Apps
     'core.apps.CoreConfig',
     'webhook.apps.WebhookConfig',
-    'data_import.apps.DataImportConfig',
     'dropbox_import.apps.DropboxImportConfig',
 ]
 
