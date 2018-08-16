@@ -1,15 +1,13 @@
-import logging, re
-from django.conf import settings
-from datetime import timedelta
-import dropbox, redis
+import logging, re, os
 
 log = logging.getLogger('django')
 
+import dropbox, redis
+from datetime import timedelta
+from django.conf import settings
 from pprint import pprint, pformat
 
 class DropboxInterface:
-    import dropbox, redis
-
     redis_namespace = 'dropbox'
     cursor_key_format = '{prefix}:cursor'
 
@@ -142,9 +140,8 @@ class DropboxInterface:
 
         log.debug('cursor: ' + cursor)
 
-        # TODO: Change hard coded 'path' parameter to setting.
         entries, cursor = self._get_result_entries(
-            cursor, path='/JSGroup-Testing', recursive=True)
+            cursor, path=settings.DROPBOX_EXPORT_FOLDER, recursive=True)
 
         self._save_cursor(cursor)
 
@@ -191,6 +188,47 @@ class DropboxInterface:
                 .format(filename))
 
 
+class ShopifyInterface:
+    import shopify
+
+    has_fetched_products = False
+    has_fetched_variants = False
+
+    def __init__(self, company):
+        """setup connection to Shopify"""
+
+        if not company.has_shop_url and not company.should_import:
+            log.error(
+                'Company "{}" missing shop_url or should_import is False.'
+                .format(company.name))
+            return
+
+        self.shopify.ShopifyResource.set_site(company.shop_url)
+        self._get_products_from_shopify()
+
+    def _get_products_from_shopify(self):
+        self.products = self._get_all_paged(self.shopify.Product.find)
+        self.has_fetched_products = True
+
+    def get_products(self):
+        if not self.has_fetched_products:
+            self._get_products_from_shopify()
+        return self.products
+
+    def _get_all_paged(self, page_cb, limit=250, page_numb=1):
+        items = []
+        has_more = True
+        while has_more:
+            page = page_cb(
+                limit=limit,
+                page=page_numb
+            )
+            has_more = len(page) == limit
+            page_numb += 1
+            items.extend(page)
+        return items
+
+
 class RedisInterface:
     import redis
 
@@ -214,5 +252,4 @@ class RedisInterface:
     def format_key(self, *keys):
         key = self.SEPARATOR.join(
             [self.namespace] + [str(k) for k in keys])
-        log.debug('format_key({}) returned: {}'.format(keys, key))
         return key
