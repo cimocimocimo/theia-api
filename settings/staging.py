@@ -11,8 +11,7 @@ DEBUG = True
 ALLOWED_HOSTS = [
     'localhost',
     'api.staging.theiacouture.com',
-    'theia-api-stage.us-east-1.elasticbeanstalk.com',
-    'theia-api-staging.us-east-1.elasticbeanstalk.com',]
+    'jsgroup-api-prod.rku9famy7u.us-east-1.elasticbeanstalk.com',]
 
 # Database
 # https://docs.djangoproject.com/en/1.10/ref/settings/#databases
