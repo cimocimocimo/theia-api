@@ -19,16 +19,16 @@ ALLOWED_HOSTS = [
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql_psycopg2',
-        'NAME': os.environ['STAGE_RDS_DB_NAME'],
-        'USER': os.environ['STAGE_RDS_USERNAME'],
+        'NAME': 'api_staging',
+        'USER': 'api_staging',
         'PASSWORD': os.environ['STAGE_RDS_PASSWORD'],
-        'HOST': os.environ['RDS_HOSTNAME'],
-        'PORT': os.environ['RDS_PORT'],
+        'HOST': RDS_HOSTNAME,
+        'PORT': RDS_PORT,
     }
 }
 
 # Redis
-REDIS_DB = os.environ['STAGE_REDIS_DB']
+REDIS_DB = 1
 REDIS_URL = '{}{}:{}/{}'.format(
     REDIS_PROTOCOL,
     REDIS_DOMAIN,

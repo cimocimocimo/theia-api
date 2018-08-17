@@ -141,9 +141,13 @@ LOGGING = {
     },
 }
 
+# Database
+RDS_HOSTNAME = 'jsgroup-postgresdb.cmkwoh1xi8ne.us-east-1.rds.amazonaws.com'
+RDS_PORT =5432
+
 # Redis
 REDIS_PROTOCOL = 'redis://'
-REDIS_DOMAIN = 'theia-api-dev.iby5d3.0001.use1.cache.amazonaws.com'
+REDIS_DOMAIN = 'js-group-api.zratp1.0001.use1.cache.amazonaws.com'
 REDIS_PORT = 6379
 
 # Celery
