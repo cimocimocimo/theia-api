@@ -11,6 +11,7 @@ DEBUG = True
 ALLOWED_HOSTS = [
     'localhost',
     'api.staging.theiacouture.com',
+    'jsgroup-api-prod.us-east-1.elasticbeanstalk.com',
     'jsgroup-api-prod.rku9famy7u.us-east-1.elasticbeanstalk.com',]
 
 # Database
@@ -46,4 +47,4 @@ CELERY_RESULT_BACKEND = REDIS_URL
 DROPBOX_APP_KEY = os.environ['STAGE_DROPBOX_APP_KEY']
 DROPBOX_APP_SECRET = os.environ['STAGE_DROPBOX_APP_SECRET']
 DROPBOX_TOKEN = os.environ['STAGE_DROPBOX_TOKEN']
-DROPBOX_EXPORT_FOLDER = '/JSGroup-Testing'
+DROPBOX_EXPORT_FOLDER = '/jsgroup-api-stage'

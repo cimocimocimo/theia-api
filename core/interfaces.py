@@ -175,7 +175,7 @@ class DropboxInterface:
         """Parse the company and export_type from filename."""
 
         type_company_pattern = re.compile(
-            r'^\d{14}\.SHPFY_([A-Za-z]+)Extract_([A-Za-z]+)\.CSV$')
+            r'^\d{14}\.SHPFY_([A-Za-z]+)Extract_([A-Za-z]+)\.(?i)CSV$')
 
         match = type_company_pattern.match(filename)
         if match:
