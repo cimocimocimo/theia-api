@@ -136,6 +136,8 @@ class DropboxInterface:
         cursor = self._get_cursor()
         if not cursor:
             log.error('Missing Dropbox cursor. Unable to list changed files.')
+            log.error('Running startup process to init cursor.')
+            self.startup()
             return
 
         log.debug('cursor: ' + cursor)
