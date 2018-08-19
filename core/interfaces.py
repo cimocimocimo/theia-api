@@ -116,7 +116,7 @@ class DropboxInterface:
 
             # list all files in dropbox
             entries, cursor = self._get_result_entries(
-                cursor, path='/JSGroup-Testing', recursive=True)
+                cursor, path=settings.DROPBOX_EXPORT_FOLDER, recursive=True)
 
             for e in entries:
                 log.debug(e.path_lower)
