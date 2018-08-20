@@ -51,5 +51,7 @@ note: the hash in the url will be unique for every run of ngrok.
 
 
 
+# Create Elastic Beanstalk environment
+$ eb create jsgroup-api-prod -c jsgroup-api-prod --envvars DJANGO_SETTINGS_MODULE=settings.production --profile northmedia
 
-
+R
