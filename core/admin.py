@@ -13,6 +13,9 @@ class LocationInline(admin.TabularInline):
     def has_add_permission(request, obj):
         return False
 
+    class Media:
+        js = ('location_inline.js',)
+
 
 @admin.register(Company)
 class CompanyAdmin(admin.ModelAdmin):
