@@ -6,8 +6,8 @@ from csv_parser.models import CSVRows
 
 log = logging.getLogger('django')
 
-from core.interfaces import DropboxInterface
-from core.models import Company, Inventory
+from core.interfaces import DropboxInterface, ShopifyInterface
+from core.models import Company, Inventory, Location
 from .importers import InventoryImporter
 from .exporters import InventoryExporter
 
@@ -23,23 +23,6 @@ def handle_notification(self, data):
 
     log.debug(pformat(files_to_import))
 
-    # Create a company entry in the DB if it doesn't exist.
-    # This is handy to create an entry
-    for file in files_to_import:
-        try:
-            company, created = Company.objects.get_or_create(
-                name=file['company'])
-        except ValueError as e:
-            log.warning(e)
-        except Exception as e:
-            # Something bad happened, log and return.
-            # TODO: Send exception to admins via email
-            log.exception(e)
-            log.error(
-                'Could not get or create Company with name "{}" from db'
-                .format(file['company']))
-            return
-
     # Process each inventory file in subtask, skip product data for now.
     [ process_inventory_file.delay(f)
       for f in files_to_import
@@ -50,24 +33,71 @@ def process_inventory_file(self, import_file):
     log.debug('Calling process_inventory_file task')
     log.debug(pformat(import_file))
 
-    # Get the company object for this import file
+    # Get or create the company object for this import file
     try:
-        company = Company.objects.get(name=import_file['company'])
+        company, created = Company.objects.get_or_create(
+            name=import_file['company'])
+
     except Exception as e:
-        # if we can't get the company something is wrong, log error and return.
-        log.error(e)
+        # TODO: Send exception to admins via email
+        log.exception(e)
         log.error(
-            'Company object with name "{}" not found in database'
+            'Could not get or create Company with name "{}" from db'
             .format(import_file['company']))
         return
 
-    # if not marked should import and missing shop_url
+    # Log and return if we shouldn't import this file or are missing the
+    # Shopify API url.
     if not company.should_import and not company.has_shop_url:
         log.info(
             'Skipping {} file for Company {}.'
             .format(
                 import_file['export_type'], import_file['company']))
         return
+
+    # Load Shopify Locations for this company
+    shop = ShopifyInterface(company)
+
+    # get or create the locations for this company in local DB
+    for shopify_id, shopify_location in shop.locations.items():
+        log.debug('shopify_location:')
+        log.debug(pformat(shopify_location.to_dict()))
+
+        location = Location(
+            shopify_id=shopify_location.id,
+            is_legacy=shopify_location.legacy,
+            name=shopify_location.name,
+            company=company)
+
+        # Set as the import destination if there is only one location
+        if len(shop.locations) == 1:
+            location.is_import_destination = True
+
+        try:
+            location.save()
+
+        except Exception as e:
+            log.exception(e)
+            log.error(
+                'Could not get or create Location with ID "{}" and name "{}"'
+                .format(
+                    shopify_location.id,
+                    shopify_location.name))
+            return
+
+    # get the location that has been set as the destination
+    try:
+        import_location = Location.objects.get(is_import_destination=True,
+                                               company=company,)
+    except Location.DoesNotExist:
+        # return if no location has been set as the default
+        log.error(
+            'No import destination has been set for company: {}'
+            .format(company.name))
+        return
+
+    log.debug('import_location:')
+    log.debug(pformat(import_location.__dict__))
 
     # download the file
     dropbox_interface = DropboxInterface()
@@ -85,7 +115,8 @@ def process_inventory_file(self, import_file):
             import_file['export_type']))
     importer.import_data()
 
-    exporter = InventoryExporter(company=company)
+    exporter = InventoryExporter(company=company,
+                                 location=import_location)
     try:
         exporter.export_data()
     except Exception as e:

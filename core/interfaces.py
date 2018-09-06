@@ -193,28 +193,54 @@ class DropboxInterface:
 class ShopifyInterface:
     import shopify
 
-    has_fetched_products = False
-    has_fetched_variants = False
-
     def __init__(self, company):
         """setup connection to Shopify"""
 
+        log.debug('Init ShopifyInterface')
+
+        self.company = company
+        self.products = False
+        self.locations = False
+        self.inventory_items = False
+        self.inventory_levels = False
+
+        # Make sure we can and should interact with this shop.
         if not company.has_shop_url and not company.should_import:
             log.error(
                 'Company "{}" missing shop_url or should_import is False.'
                 .format(company.name))
             return
 
+        # Setup API client
         self.shopify.ShopifyResource.set_site(company.shop_url)
-        self._get_products_from_shopify()
 
-    def _get_products_from_shopify(self):
-        self.products = self._get_all_paged(self.shopify.Product.find)
-        self.has_fetched_products = True
+    @property
+    def products(self):
+        if not self.__products:
+            self.__products = self._get_from_shopify(self.shopify.Product)
+        return self.__products
+
+    @products.setter
+    def products(self, value):
+        self.__products = value
+
+    @property
+    def locations(self):
+        if not self.__locations:
+            self.__locations = self._get_from_shopify(self.shopify.Location)
+        return self.__locations
+
+    @locations.setter
+    def locations(self, value):
+        self.__locations = value
+
+    def _get_from_shopify(self, shopify_class):
+        return {
+            x.id:x
+            for x in self._get_all_paged(
+                shopify_class.find)}
 
     def get_products(self):
-        if not self.has_fetched_products:
-            self._get_products_from_shopify()
         return self.products
 
     def _get_all_paged(self, page_cb, limit=250, page_numb=1):

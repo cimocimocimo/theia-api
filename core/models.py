@@ -34,6 +34,28 @@ class Company(models.Model):
         return '{}'.format(self.name)
 
 
+class Location(models.Model):
+    shopify_id = models.BigIntegerField(unique=True)
+    is_legacy = models.BooleanField()
+    is_import_destination = models.BooleanField(default=False)
+    name = models.CharField(max_length=256, blank=True, null=True)
+    company = models.ForeignKey(Company, on_delete=models.CASCADE)
+
+    def save(self, *args, **kwargs):
+        # Ensure we only have one import destination per company
+        if self.is_import_destination:
+            # Change other instances of this company location that are True to
+            # False.
+            self.__class__.objects.filter(
+                is_import_destination=True,
+                company=self.company,
+            ).update(
+                is_import_destination=False)
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return '{}'.format(self.name)
+
 # redis models
 class RedisModel:
     """
