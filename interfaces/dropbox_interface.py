@@ -1,11 +1,9 @@
-import logging, re, os
-
-log = logging.getLogger('django')
-
-import dropbox, redis
+import logging, re, os, dropbox, redis
 from datetime import timedelta
 from django.conf import settings
 from pprint import pprint, pformat
+
+log = logging.getLogger('django')
 
 class DropboxInterface:
     redis_namespace = 'dropbox'
@@ -188,96 +186,3 @@ class DropboxInterface:
             raise ValueError(
                 'Company or export type not found in filename: {}'
                 .format(filename))
-
-
-class ShopifyInterface:
-    import shopify
-
-    def __init__(self, company):
-        """setup connection to Shopify"""
-
-        log.debug('Init ShopifyInterface')
-
-        self.company = company
-        self.products = False
-        self.locations = False
-        self.inventory_items = False
-        self.inventory_levels = False
-
-        # Make sure we can and should interact with this shop.
-        if not company.has_shop_url and not company.should_import:
-            log.error(
-                'Company "{}" missing shop_url or should_import is False.'
-                .format(company.name))
-            return
-
-        # Setup API client
-        self.shopify.ShopifyResource.set_site(company.shop_url)
-
-    @property
-    def products(self):
-        if not self.__products:
-            self.__products = self._get_from_shopify(self.shopify.Product)
-        return self.__products
-
-    @products.setter
-    def products(self, value):
-        self.__products = value
-
-    @property
-    def locations(self):
-        if not self.__locations:
-            self.__locations = self._get_from_shopify(self.shopify.Location)
-        return self.__locations
-
-    @locations.setter
-    def locations(self, value):
-        self.__locations = value
-
-    def _get_from_shopify(self, shopify_class):
-        return {
-            x.id:x
-            for x in self._get_all_paged(
-                shopify_class.find)}
-
-    def get_products(self):
-        return self.products
-
-    def _get_all_paged(self, page_cb, limit=250, page_numb=1):
-        items = []
-        has_more = True
-        while has_more:
-            page = page_cb(
-                limit=limit,
-                page=page_numb
-            )
-            has_more = len(page) == limit
-            page_numb += 1
-            items.extend(page)
-        return items
-
-
-class RedisInterface:
-    import redis
-
-    client = redis.StrictRedis(host=settings.REDIS_DOMAIN,
-                               db=settings.REDIS_DB,
-                               port=settings.REDIS_PORT)
-
-    SEPARATOR = ':'
-
-    def __init__(self, namespace=None):
-        self.namespace = ''
-        if namespace:
-            self.add_namespace(namespace)
-
-    def add_namespace(self, namespace):
-        if self.namespace:
-            self.namespace += self.SEPARATOR + namespace
-        else:
-            self.namespace = namespace
-
-    def format_key(self, *keys):
-        key = self.SEPARATOR.join(
-            [self.namespace] + [str(k) for k in keys])
-        return key

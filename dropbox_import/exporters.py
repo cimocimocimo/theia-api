@@ -7,12 +7,11 @@ needed for the various destinations.
 """
 
 import re, logging
-
-log = logging.getLogger('django')
-
-from core.interfaces import ShopifyInterface, RedisInterface
+from interfaces import ShopifyInterface, RedisInterface
 from core.models import Inventory
 from csv_parser.helpers import is_upc_valid
+
+log = logging.getLogger('django')
 
 class InventoryExporter():
     """

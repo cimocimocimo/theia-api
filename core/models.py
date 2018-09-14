@@ -4,7 +4,7 @@ from datetime import timedelta
 
 log = logging.getLogger('django')
 
-from .interfaces import RedisInterface
+from interfaces import RedisInterface
 
 class Company(models.Model):
     name = models.CharField(unique=True, max_length=64)

@@ -1,5 +1,5 @@
 import logging, re
-from core.interfaces import RedisInterface
+from interfaces import RedisInterface
 
 from core.models import Inventory
 

@@ -6,6 +6,8 @@ from datetime import datetime, timedelta
 
 from core.models import Company
 from core.interfaces import DropboxInterface, ShopifyInterface
+from core.models import Company, Location
+from interfaces import DropboxInterface, ShopifyInterface
 
 from dropbox_import.importers import InventoryImporter
 from dropbox_import.exporters import InventoryExporter
@@ -122,22 +124,22 @@ class Controller:
         if not company.has_shop_url:
             return
 
-        shopify = ShopifyInterface(company)
-        products = shopify.get_products()
-        for p in products:
-            save_needed = False
+        shop = ShopifyInterface(company)
 
-            # only update collection for Theia
-            if company.name == 'Theia':
-                if p.product_type == 'Theia Shop':
-                    p.product_type = 'Theia Collection'
-                    save_needed = True
+        # Get import location for this company
+        try:
+            import_location = Location.objects.get(company=company.id,
+                                                   is_import_destination=True,)
+        except Location.DoesNotExist:
+            log.error(
+                'Import destination location has not been set for {}'.format(
+                    company.name))
+            return
 
-            for v in p.variants:
-                if v.inventory_quantity:
-                    save_needed = True
-                    v.inventory_quantity = 0
+        shop.reset_inventory()
 
-            if save_needed:
-                print('saving product: {}'.format(p.title))
-                print(p.save())
+        # Change product_type for Theia only, this is the only company that
+        # requires this for moving products between the shop and the lookbook.
+        if company.name == 'Theia':
+            for key, prod in shop.products.items():
+                shop.update_product(key, 'product_type', 'Theia Collection')

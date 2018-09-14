@@ -6,7 +6,7 @@ from csv_parser.models import CSVRows
 
 log = logging.getLogger('django')
 
-from core.interfaces import DropboxInterface, ShopifyInterface
+from interfaces import DropboxInterface, ShopifyInterface
 from core.models import Company, Inventory, Location
 from .importers import InventoryImporter
 from .exporters import InventoryExporter
@@ -60,22 +60,17 @@ def process_inventory_file(self, import_file):
 
     # get or create the locations for this company in local DB
     for shopify_id, shopify_location in shop.locations.items():
-        log.debug('shopify_location:')
-        log.debug(pformat(shopify_location.to_dict()))
-
-        location = Location(
-            shopify_id=shopify_location.id,
-            is_legacy=shopify_location.legacy,
-            name=shopify_location.name,
-            company=company)
+        location_args = {
+            'shopify_id': shopify_location.id,
+            'is_legacy': shopify_location.legacy,
+            'name': shopify_location.name,
+            'company': company,}
 
         # Set as the import destination if there is only one location
         if len(shop.locations) == 1:
-            location.is_import_destination = True
-
+            location_args['is_import_destination'] = True
         try:
-            location.save()
-
+            Location.objects.get_or_create(**location_args)
         except Exception as e:
             log.exception(e)
             log.error(
@@ -96,15 +91,9 @@ def process_inventory_file(self, import_file):
             .format(company.name))
         return
 
-    log.debug('import_location:')
-    log.debug(pformat(import_location.__dict__))
-
     # download the file
     dropbox_interface = DropboxInterface()
     filemeta, response = dropbox_interface.download_file(import_file['id'])
-
-    log.debug(pformat(filemeta))
-    log.debug(response)
 
     # Create importer instance with the csv file data and company. Then import
     # the data into Redis.
