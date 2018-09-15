@@ -111,8 +111,7 @@ class ShopifyInterface:
             setattr(prod, attr, value)
             prod.save()
 
-    def set_level_available(self, location_id, variant_id, available):
-        inventory_item_id = self.variants[variant_id].inventory_item_id
+    def set_level_available(self, location_id, inventory_item_id, available):
         shopify.InventoryLevel.set(
             location_id=location_id,
             inventory_item_id=inventory_item_id,
