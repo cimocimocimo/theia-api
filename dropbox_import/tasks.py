@@ -7,7 +7,7 @@ from csv_parser.models import CSVRows
 log = logging.getLogger('django')
 
 from interfaces import DropboxInterface, ShopifyInterface
-from core.models import Company, Inventory, Location
+from core.models import Company, Inventory, FulfillmentService
 from .importers import InventoryImporter
 from .exporters import InventoryExporter
 
@@ -58,34 +58,13 @@ def process_inventory_file(self, import_file):
     # Load Shopify Locations for this company
     shop = ShopifyInterface(company)
 
-    # get or create the locations for this company in local DB
-    for shopify_id, shopify_location in shop.locations.items():
-        location_args = {
-            'shopify_id': shopify_location.id,
-            'is_legacy': shopify_location.legacy,
-            'name': shopify_location.name,
-            'company': company,}
-
-        # Set as the import destination if there is only one location
-        if len(shop.locations) == 1:
-            location_args['is_import_destination'] = True
-        try:
-            Location.objects.get_or_create(**location_args)
-        except Exception as e:
-            log.exception(e)
-            log.error(
-                'Could not get or create Location with ID "{}" and name "{}"'
-                .format(
-                    shopify_location.id,
-                    shopify_location.name))
-            return
-
-    # get the location that has been set as the destination
+    # get the fulfillment service that has been set as the destination
     try:
-        import_location = Location.objects.get(is_import_destination=True,
-                                               company=company,)
-    except Location.DoesNotExist:
-        # return if no location has been set as the default
+        import_fulfillment_service = FulfillmentService.objects.get(
+            is_import_destination=True,
+            company=company,)
+    except FulfillmentService.DoesNotExist:
+        # return if no fulfillment service has been set as the default
         log.error(
             'No import destination has been set for company: {}'
             .format(company.name))
@@ -105,7 +84,7 @@ def process_inventory_file(self, import_file):
     importer.import_data()
 
     exporter = InventoryExporter(company=company,
-                                 location=import_location)
+                                 location_id=import_fulfillment_service.location_id)
     try:
         exporter.export_data()
     except Exception as e:

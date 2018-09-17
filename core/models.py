@@ -1,6 +1,7 @@
 import logging
 from django.db import models
 from datetime import timedelta
+from pprint import pprint, pformat
 
 log = logging.getLogger('django')
 
@@ -32,25 +33,21 @@ class Company(models.Model):
         return False
 
     def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         self.shop = None
         if self.has_shop_url:
             self.shop = ShopifyInterface(shop_url=self.shop_url)
-        super(Company, self).__init__(*args, **kwargs)
 
     def save(self, *args, **kwargs):
         super().save(*args, **kwargs)
-
         # populate the fulfillment services for this company, called after the
         # main save action
-        if self.has_shop_url:
-            self.populate_fulfillment_services()
+        if self.has_shop_url and self.shop.can_connect_to_shopify:
+            for service_id, service in self.shop.fulfillment_services.items():
+                # create the service in the db
+                self._create_fulfillment_service(service)
 
-    def populate_fulfillment_services(self):
-        for s in self.shop.fulfillment_services:
-            # create the service in the db
-            self._create_fulfilment_service(s, shop)
-
-    def _create_fulfilment_service(self, service):
+    def _create_fulfillment_service(self, service):
         # Get or create the company object for this import file
         service_args = {
             'company': self,
@@ -63,7 +60,7 @@ class Company(models.Model):
             service_args['is_import_destination'] = True
 
         try:
-            service, created = FulfilmentService.objects.get_or_create(
+            service, created = FulfillmentService.objects.get_or_create(
                 **service_args)
         except Exception as e:
             # TODO: Send exception to admins via email
@@ -71,12 +68,13 @@ class Company(models.Model):
             log.error(
                 'Could not get or create FulfilmentService with name "{}" from db'
                 .format(service.name))
-            return
+
 
     def __str__(self):
-        return '{}({})'.format(self.__class__, self.name)
+        return '{}({})'.format(self.__class__.__name__, self.name)
 
-class FulfilmentService(models.Model):
+
+class FulfillmentService(models.Model):
     company = models.ForeignKey(Company, on_delete=models.CASCADE)
     location_id = models.BigIntegerField()
     handle = models.CharField(max_length=256, blank=True, null=True)
@@ -86,8 +84,8 @@ class FulfilmentService(models.Model):
     def save(self, *args, **kwargs):
         # Ensure we only have one import destination per company
         if self.is_import_destination:
-            # Change other instances of this company location that are True to
-            # False.
+            # Change other instances of this company fulfillment service that
+            # are True to False.
             self.__class__.objects.filter(
                 is_import_destination=True,
                 company=self.company,
@@ -98,28 +96,6 @@ class FulfilmentService(models.Model):
     def __str__(self):
         return '{}'.format(self.name)
 
-        
-class Location(models.Model):
-    shopify_id = models.BigIntegerField(unique=True)
-    is_legacy = models.BooleanField()
-    is_import_destination = models.BooleanField(default=False)
-    name = models.CharField(max_length=256, blank=True, null=True)
-    company = models.ForeignKey(Company, on_delete=models.CASCADE)
-
-    def save(self, *args, **kwargs):
-        # Ensure we only have one import destination per company
-        if self.is_import_destination:
-            # Change other instances of this company location that are True to
-            # False.
-            self.__class__.objects.filter(
-                is_import_destination=True,
-                company=self.company,
-            ).update(
-                is_import_destination=False)
-        super().save(*args, **kwargs)
-
-    def __str__(self):
-        return '{}'.format(self.name)
 
 # redis models
 class RedisModel:

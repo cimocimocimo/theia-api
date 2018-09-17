@@ -6,7 +6,7 @@ from datetime import datetime, timedelta
 
 from core.models import Company
 from core.interfaces import DropboxInterface, ShopifyInterface
-from core.models import Company, Location
+from core.models import Company, FulfillmentService
 from interfaces import DropboxInterface, ShopifyInterface
 
 from dropbox_import.importers import InventoryImporter
@@ -126,13 +126,13 @@ class Controller:
 
         shop = ShopifyInterface(company)
 
-        # Get import location for this company
+        # Get import fulfillment service for this company
         try:
-            import_location = Location.objects.get(company=company.id,
+            import_fulfillment_service = FulfillmentService.objects.get(company=company.id,
                                                    is_import_destination=True,)
-        except Location.DoesNotExist:
+        except FulfillmentService.DoesNotExist:
             log.error(
-                'Import destination location has not been set for {}'.format(
+                'Import destination fulfillment service has not been set for {}'.format(
                     company.name))
             return
 

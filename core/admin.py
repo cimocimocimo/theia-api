@@ -1,20 +1,18 @@
 from django.contrib import admin
+from .models import Company, FulfillmentService
 
-from .models import Company, Location
-from django.utils.html import format_html
-
-class LocationInline(admin.TabularInline):
-    model = Location
+class FulfillmentServiceInline(admin.TabularInline):
+    model = FulfillmentService
     extra = 0
     can_delete = False
-    readonly_fields = ('shopify_id', 'is_legacy', 'name',)
-    list_display = ('is_import_destination', 'shopify_id', 'is_legacy',)
+    readonly_fields = ('location_id', 'handle', 'name',)
+    list_display = ('is_import_destination', 'location_id',)
 
     def has_add_permission(request, obj):
         return False
 
     class Media:
-        js = ('location_inline.js',)
+        js = ('fulfillment_service_inline.js',)
 
 
 @admin.register(Company)
@@ -23,29 +21,20 @@ class CompanyAdmin(admin.ModelAdmin):
                     'shopify_shop_name',
                     'should_import',
                     'configured',
-                    'import_location',)
+                    'import_fulfillment_service',)
     inlines = [
-        LocationInline,]
+        FulfillmentServiceInline,]
 
     def configured(self, obj):
         return obj.has_shop_url
     configured.boolean = True
 
-    def import_location(slef, obj):
+    def import_fulfillment_service(self, obj):
         try:
-            loc = Location.objects.get(company=obj, is_import_destination=True)
-        except Location.DoesNotExist:
+            fulfillment_service = FulfillmentService.objects.get(
+                company=obj,
+                is_import_destination=True)
+        except FulfillmentService.DoesNotExist:
             return None
 
-        return loc.name
-
-# @admin.register(Company)
-# class CompanyAdmin(admin.ModelAdmin):
-#     # Company name should not be editable
-#     readonly_fields = ('name',)
-
-#     def has_add_permission(self, request):
-#         return False
-
-#     def has_delete_permission(self, request, obj=None):
-#         return False
+        return fulfillment_service.name

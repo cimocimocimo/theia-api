@@ -18,12 +18,12 @@ class InventoryExporter():
     Export the latest inventory data to the shops for each company.
     """
 
-    def __init__(self, company):
+    def __init__(self, company, location_id):
         self.company = company
+        self.location_id = location_id
         self.inventory = Inventory(company.name)
-        self.shopify = ShopifyInterface(company)
+        self.shop = ShopifyInterface(shop_url=company.shop_url)
         self._numb_products_updated = 0
-        self._products = []
 
     def export_data(self):
 

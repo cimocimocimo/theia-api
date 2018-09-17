@@ -46,3 +46,16 @@ DROPBOX_APP_SECRET = os.environ['DEV_DROPBOX_APP_SECRET']
 DROPBOX_TOKEN = os.environ['DEV_DROPBOX_TOKEN']
 DROPBOX_EXPORT_FOLDER = '/jsgroup-api-dev'
 
+# development log
+LOGGING['loggers']['development'] = {
+    'handlers': ['development'],
+    'level': 'DEBUG',
+    'propagate': True,
+}
+LOGGING['handlers']['development'] = {
+    'class': 'logging.FileHandler',
+    'level': 'DEBUG',
+    'filename': LOG_DIR + 'development.log',
+    'formatter': 'normal',
+}
+

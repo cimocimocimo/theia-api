@@ -26,18 +26,11 @@ class ShopifyInterface:
 
         shopify.ShopifyResource.set_site(shop_url)
 
-        # test to ensure shop_url is valid
-        try:
-            # Returns the Shop data. Simple and quick way to test.
-            shopify.Shop.current()
-        except ValueError as e:
-            log.error('shop_url is invalid')
-            raise
-
         self.company = company
         self.products = False
         self.variants = False
         self.locations = False
+        self.fulfillment_services = False
         self.inventory_items = False
         self.inventory_levels = False
 
@@ -70,6 +63,18 @@ class ShopifyInterface:
     @locations.setter
     def locations(self, value):
         self.__locations = value
+
+    @property
+    def fulfillment_services(self):
+        if not self.__fulfillment_services:
+            self.__fulfillment_services = self._get_from_shopify(
+                shopify.FulfillmentService,
+                scope='all')
+        return self.__fulfillment_services
+
+    @fulfillment_services.setter
+    def fulfillment_services(self, value):
+        self.__fulfillment_services = value
 
     @property
     def inventory_levels(self):
@@ -135,6 +140,17 @@ class ShopifyInterface:
             x.id:x
             for x in self._get_all_paged(
                     shopify_class.find, **kwargs)}
+
+    @property
+    def can_connect_to_shopify(self):
+        # test to ensure shop_url is valid
+        try:
+            # Returns the Shop data. Simple and quick way to test.
+            shopify.Shop.current()
+            return True
+        except Exception as e:
+            log.error('shop_url is invalid')
+            return False
 
     # TODO: Remove this method
     def get_products(self):
