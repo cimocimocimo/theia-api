@@ -69,9 +69,11 @@ class Company(models.Model):
                 'Could not get or create FulfilmentService with name "{}" from db'
                 .format(service.name))
 
+    def __repr__(self):
+        return '{}({})'.format(self.__class__.__name__, self.name)
 
     def __str__(self):
-        return '{}({})'.format(self.__class__.__name__, self.name)
+        return '{}'.format(self.name)
 
 
 class FulfillmentService(models.Model):

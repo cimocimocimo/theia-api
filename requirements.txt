@@ -1,8 +1,8 @@
 amqp==2.1.1
 billiard==3.5.0.2
 celery==4.0.0
-Django==1.10.3
-django-extensions==1.7.4
+Django==2.1.1
+django-extensions==2.1.2
 django-redis==4.6.0
 dropbox==7.1.1
 kombu==4.0.0

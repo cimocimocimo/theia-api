@@ -3,7 +3,7 @@ from datetime import timedelta
 from django.conf import settings
 from pprint import pprint, pformat
 
-log = logging.getLogger('django')
+log = logging.getLogger('development')
 
 class DropboxInterface:
     redis_namespace = 'dropbox'
@@ -32,6 +32,11 @@ class DropboxInterface:
         filemeta, response = self.download_file(id)
         return response.text
 
+    def list_all_files(self):
+        # list all files in dropbox
+        entries, cursor = self._get_result_entries(
+            path=settings.DROPBOX_EXPORT_FOLDER, recursive=True)
+        return entries
 
     # private methods
     def _format_cursor_key(self):

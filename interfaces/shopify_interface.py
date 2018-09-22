@@ -11,13 +11,6 @@ class ShopifyInterface:
 
         log.debug('Init ShopifyInterface')
 
-        # Make sure we can and should interact with this shop.
-        # if not company.has_shop_url and not company.should_import:
-        #     log.error(
-        #         'Company "{}" missing shop_url or should_import is False.'
-        #         .format(company.name))
-        #     return
-
         # Setup API client
         if company and not shop_url:
             self.shop_url = company.shop_url
