@@ -14,6 +14,12 @@ class Company(models.Model):
     shopify_shop_name = models.CharField(unique=True, max_length=256, blank=True, null=True)
     shopify_api_key = models.CharField(max_length=256, blank=True, null=True)
     shopify_password = models.CharField(max_length=256, blank=True, null=True)
+    # flag for checking we can connect to Shopify with these values.
+    shopify_url_is_valid = models.BooleanField(default=False)
+    # used for checking if the values changed on save
+    __shopify_shop_name = None
+    __shopify_api_key = None
+    __shopify_password = None
 
     @property
     def has_shop_url(self):
@@ -34,40 +40,29 @@ class Company(models.Model):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.shop = None
-        if self.has_shop_url:
-            self.shop = ShopifyInterface(shop_url=self.shop_url)
+        
+        # store the original values to compare with on save
+        self.__shopify_shop_name = self.shopify_shop_name
+        self.__shopify_api_key = self.shopify_api_key
+        self.__shopify_password = self.shopify_password
 
     def save(self, *args, **kwargs):
+        # check to see if the Shopify values have been changed
+        if (self.has_shop_url and (
+                self.__shopify_shop_name != self.shopify_shop_name
+                or self.__shopify_api_key != self.shopify_api_key
+                or self.__shopify_password != self.shopify_password)):
+            # something's changed, make sure the shop_url is valid.
+            try:
+                shop = ShopifyInterface(shop_url=self.shop_url)
+            except:
+                self.shopify_url_is_valid = False
+            else:
+                self.shopify_url_is_valid = True
+
         super().save(*args, **kwargs)
         # populate the fulfillment services for this company, called after the
         # main save action
-        if self.has_shop_url and self.shop.can_connect_to_shopify:
-            for service_id, service in self.shop.fulfillment_services.items():
-                # create the service in the db
-                self._create_fulfillment_service(service)
-
-    def _create_fulfillment_service(self, service):
-        # Get or create the company object for this import file
-        service_args = {
-            'company': self,
-            'location_id': service.location_id,
-            'handle': service.handle,
-            'name': service.name,}
-
-        # set as import destination if it's the only one.
-        if len(self.shop.fulfillment_services) == 1:
-            service_args['is_import_destination'] = True
-
-        try:
-            service, created = FulfillmentService.objects.get_or_create(
-                **service_args)
-        except Exception as e:
-            # TODO: Send exception to admins via email
-            log.exception(e)
-            log.error(
-                'Could not get or create FulfilmentService with name "{}" from db'
-                .format(service.name))
 
     def __repr__(self):
         return '{}({})'.format(self.__class__.__name__, self.name)

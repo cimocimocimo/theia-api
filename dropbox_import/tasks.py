@@ -55,7 +55,7 @@ def process_inventory_file(self, import_file):
                 import_file['export_type'], import_file['company']))
         return
 
-    # Load Shopify FulfillmentServices for this company
+    # Load Shopify FulfillmentService for this company
     shop = ShopifyInterface(company)
 
     # get the fulfillment service that has been set as the destination

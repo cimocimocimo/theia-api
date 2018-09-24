@@ -3,7 +3,7 @@
 
 {% block object-tools-items %}
 <li>
-  <a href="{% url 'admin:dropbox_import_load-import-files' %}"
+  <a href="{% url 'admin:dropbox_import_load-files' %}"
     class="button">Load {{ cl.opts.verbose_name }}s from Dropbox</a>
 </li>
 {{ block.super }}

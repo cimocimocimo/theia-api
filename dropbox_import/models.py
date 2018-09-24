@@ -16,7 +16,6 @@ class ExportType(models.Model):
     def __str__(self):
         return '{}'.format(self.name)
 
-
 class ImportFile(models.Model):
     class Meta:
         get_latest_by = 'server_modified'
@@ -38,7 +37,8 @@ class ImportFile(models.Model):
     path_lower = models.CharField(max_length=1024)
     filename = models.CharField(max_length=1024)
     server_modified = models.DateTimeField()
-    company = models.ForeignKey(Company, on_delete = models.CASCADE)
+    company = models.ForeignKey(Company, null=True,
+                                on_delete = models.SET_NULL)
     export_type = models.ForeignKey(ExportType, on_delete = models.CASCADE)
     import_status = models.CharField(max_length=16,
                                      choices=IMPORT_STATUS_CHOICES,

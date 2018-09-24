@@ -33,6 +33,8 @@ class CSVRows:
     def __iter__(self):
         return self
 
+    # TODO: Gather the specific errors here and the row and column info for
+    # errors. Log these to the import job somehow.
     def __next__(self):
         raw_dict = next(self._csv_reader)
         processed = dict()

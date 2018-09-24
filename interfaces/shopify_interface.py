@@ -1,25 +1,34 @@
 import logging, shopify
 from pprint import pprint, pformat
 
-log = logging.getLogger('django')
+log = logging.getLogger('development')
 
 class ShopifyInterface:
-    # TODO: Remove coupling with Company model. Passing in a shop_url should be
-    # enough.
-    def __init__(self, company=None, shop_url=None):
+    def __init__(self, shop_url=None):
         """setup connection to Shopify"""
-
         log.debug('Init ShopifyInterface')
 
         # Setup API client
-        if company and not shop_url:
-            self.shop_url = company.shop_url
-        elif shop_url:
+        if shop_url:
             self.shop_url = shop_url
+        else:
+            message = '{}.__init__() requires a valid Shopify URL.'.format(
+                self.__class__.__name__)
+            log.warning(message)
+            raise ValueError(message)
 
-        shopify.ShopifyResource.set_site(shop_url)
+        shopify.ShopifyResource.set_site(self.shop_url)
 
-        self.company = company
+        # test to ensure shop_url is valid
+        try:
+            # Returns the Shop data. Simple and quick way to test.
+            self.shop = shopify.Shop.current()
+        except Exception as e:
+            log.exception(e)
+            raise
+        else:
+            self.can_connect = True
+
         self.products = False
         self.variants = False
         self.locations = False
@@ -133,21 +142,6 @@ class ShopifyInterface:
             x.id:x
             for x in self._get_all_paged(
                     shopify_class.find, **kwargs)}
-
-    @property
-    def can_connect_to_shopify(self):
-        # test to ensure shop_url is valid
-        try:
-            # Returns the Shop data. Simple and quick way to test.
-            shopify.Shop.current()
-            return True
-        except Exception as e:
-            log.error('shop_url is invalid')
-            return False
-
-    # TODO: Remove this method
-    def get_products(self):
-        return self.products
 
     def _get_all_paged(self, page_cb, limit=250, page_numb=1, **kwargs):
         items = []

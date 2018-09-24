@@ -1,18 +1,40 @@
 import logging, dropbox, pytz
 from django.contrib import admin
-from django.urls import include, path, reverse
+from django.urls import path, reverse
 from django.http import HttpResponseRedirect
 from django.utils.html import format_html
+from django.contrib import messages
 from pprint import pprint, pformat
 from .models import ImportFile, ExportType
 from core.models import Company
 from interfaces import DropboxInterface
-
+from core.controllers import Controller
 from django.utils.timezone import make_aware
 
 log = logging.getLogger('development')
 dropbox_interface = DropboxInterface()
 current_app_name = __package__.rsplit('.', 1)[-1]
+
+def check_referer(func):
+    """Decorator for checking a request for a referer in custom admin views
+
+    All admin views should have a referer to ensure that the request came from
+    a user clicking on a button. Not a perfect check but, decent.
+    """
+    def _check_referer(obj, request, *args, **kwargs):
+        try:
+            request.META['HTTP_REFERER']
+        except KeyError as e:
+            message = 'Direct call to export_to_shopify() is not allowed.'
+            obj.message_user(request, message, messages.WARNING)
+            log.error(message)
+            log.exception(e)
+            return HttpResponseRedirect(
+                reverse(
+                    'admin:dropbox_import_importfile_changelist'))
+
+        return func(obj, request, *args, **kwargs)
+    return _check_referer
 
 @admin.register(ImportFile)
 class ImportFileAdmin(admin.ModelAdmin):
@@ -27,7 +49,7 @@ class ImportFileAdmin(admin.ModelAdmin):
     list_display = readonly_fields = (
         'filename',
         'server_modified',
-        'company',
+        'company_link',
         'export_type',
         'import_status',
         'file_actions', # Renders buttons to trigger actions, defined below.
@@ -38,55 +60,83 @@ class ImportFileAdmin(admin.ModelAdmin):
     # Adds button to list page for populating the Import Files from Dropbox.
     change_list_template = 'admin/import_file_change_list.html'
 
-    # Returns html button for file actions.
+    def company_link(self, obj):
+        return format_html(
+            '<a href="{}">{}</a>',
+            reverse('admin:core_company_change', args=(obj.company.pk,)),
+            obj.company.name,)
+    company_link.short_description = 'Company'
+
+    # Returns HTML button for file actions.
     def file_actions(self, obj):
         # only for Inventory files
         if obj.export_type.name != 'Inventory':
             return None
+        if not obj.company.shopify_url_is_valid:
+            return 'Shopify not configured'
+            return None
+
         return format_html(
-            '<a class="button" href="{}">Process File</a>',
-            reverse('admin:{}_process-import-file'.format(current_app_name),
+            '<a class="button" href="{}">Export to Shopify</a>',
+            reverse('admin:{}_export-shopify'.format(current_app_name),
                     args=[obj.pk]))
     file_actions.short_description = 'Actions'
 
-    # Add urls and bind their actions to methods defined below.
+    # URLs ####################################################################
+
     def get_urls(self):
         return [
             path(
                 'load/',
-                self.admin_site.admin_view(self.load_import_files),
-                name='{}_load-import-files'.format(current_app_name),
+                self.admin_site.admin_view(self.load_files),
+                name='{}_load-files'.format(current_app_name),
             ),
             path(
-                '<int:import_file_id>/process/',
-                self.admin_site.admin_view(self.process_import_file),
-                name='{}_process-import-file'.format(current_app_name),
+                '<int:import_file_id>/export/',
+                self.admin_site.admin_view(self.export_to_shopify),
+                name='{}_export-shopify'.format(current_app_name),
             ),
         ] + super().get_urls()
 
-    def process_import_file(self, request, import_file_id):
-        try:
-            redirect_url = request.META['HTTP_REFERER']
-        except (AttributeError, KeyError,) as e:
-            log.error('Direct call to process_import_file() is not allowed.')
-            log.exception(e)
-            return
+    # Views ###################################################################
+
+    @check_referer
+    def export_to_shopify(self, request, import_file_id):
+        """Handles the HTTP request and dispatches the controller action
+
+        This handles the HTTP side of things and also catches exceptions and
+        displays messages to the user.
+        """
+
+        # User has clicked on the export to shopify button. We should have a
+        # valid ImportFile id.
+
+        message_type = messages.INFO
+
+        c = Controller()
 
         try:
-            file = ImportFile.objects.get(pk=import_file_id)
-        except ImportFile.DoesNotExist:
-            log.error(
-                'Import file with pk={} not found.'.format(import_file_id))
-            return
+            message = c.export_to_shopify(import_file_id)
 
-        self.message_user(
-            request,
-            'I didnt load shit..., but I should have loaded file_id {}'
-            'moreo f the message'
-            .format(import_file_id))
-        return HttpResponseRedirect(redirect_url)
+        # Handle error conditions and notify the user
+        except ImportFile.DoesNotExist as e:
+            message = 'Import file with pk={} not found.'.format(
+                import_file_id)
+            message_type = messages.WARNING
+        except ValueError as e:
+            message = e
+            message_type = messages.WARNING
+        else:
+            # success conditions
+            pass
+            
+        self.message_user(request, message, message_type)
+        return HttpResponseRedirect(request.META['HTTP_REFERER'])
 
-    def load_import_files(self, request):
+    @check_referer
+    def load_files(self, request):
+        redirect_url = request.META['HTTP_REFERER']
+
         # list all files in the dropbox export folder
         entries = dropbox_interface.list_all_files()
 
@@ -95,7 +145,8 @@ class ImportFileAdmin(admin.ModelAdmin):
             self.message_user(
                 request,
                 'No data files found in dropbox folder {}.'.format(
-                settings.DROPBOX_EXPORT_FOLDER))
+                    settings.DROPBOX_EXPORT_FOLDER),
+                messages.WARNING)
             return HttpResponseRedirect("../")
 
         for filemeta in entries:
@@ -156,5 +207,5 @@ class ImportFileAdmin(admin.ModelAdmin):
         ImportFile.objects.exclude(dropbox_id__in=entry_ids).delete()
         
         self.message_user(request, "Import Files have been loaded.")
-        return HttpResponseRedirect("../")
+        return HttpResponseRedirect(redirect_url)
 
