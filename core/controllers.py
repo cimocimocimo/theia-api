@@ -12,6 +12,7 @@ from interfaces import DropboxInterface, ShopifyInterface
 from csv_parser.models import CSVRows
 from dropbox_import.importers import InventoryImporter
 from dropbox_import.exporters import InventoryExporter
+from .tasks import export_to_shopify
 
 log = logging.getLogger('development')
 dropbox_interface = DropboxInterface()
@@ -25,22 +26,23 @@ class Controller:
         """Init Controller"""
         log.debug('Controller initialized')
 
-    def export_to_shopify(self, import_file_id):
+    def start_shopify_export(self, import_file_id):
         """Imports Dropbox data file and then exports to Shopify.
         """
+        log.debug('start_shopify_export()')
 
         # get the import file
+        file = ImportFile.objects.get(pk=import_file_id)
+
+        # try to start celery task
         try:
-            file = ImportFile.objects.get(pk=import_file_id)
-        except ImportFile.DoesNotExist as e:
-            log.exception(e)
+            job = file.start_job_task(job_task=export_to_shopify)
+        except Exception as e:
+            # There was an error starting the celery task
             raise
 
-        # create an import job for this Import File and start logging to it.
-        import_job = ImportJob(import_file = file)
-
-        # Once the import job is created we should start a celery background
-        # task and notify the user.
+        return 'Export job started successfully or company "{}"'.format(
+            file.company)
 
         try:
             shop = ShopifyInterface(shop_url=file.company.shop_url)

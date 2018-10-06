@@ -1,19 +1,25 @@
-import logging, dropbox, pytz
+import logging, pytz
+from pprint import pprint, pformat
+
+import dropbox
 from django.contrib import admin
 from django.urls import path, reverse
 from django.http import HttpResponseRedirect
 from django.utils.html import format_html
 from django.contrib import messages
-from pprint import pprint, pformat
+from django.utils.timezone import make_aware
+
 from .models import ImportFile, ExportType
 from core.models import Company
 from interfaces import DropboxInterface
 from core.controllers import Controller
-from django.utils.timezone import make_aware
+from .models import ImportFile, ImportJob
+
 
 log = logging.getLogger('development')
 dropbox_interface = DropboxInterface()
 current_app_name = __package__.rsplit('.', 1)[-1]
+
 
 def check_referer(func):
     """Decorator for checking a request for a referer in custom admin views
@@ -36,6 +42,7 @@ def check_referer(func):
         return func(obj, request, *args, **kwargs)
     return _check_referer
 
+
 @admin.register(ImportFile)
 class ImportFileAdmin(admin.ModelAdmin):
 
@@ -55,7 +62,8 @@ class ImportFileAdmin(admin.ModelAdmin):
         'file_actions', # Renders buttons to trigger actions, defined below.
     )
     # Set 2 additional fields as read only.
-    readonly_fields = readonly_fields + ('dropbox_id', 'path_lower')
+    readonly_fields = readonly_fields + ('company', 'dropbox_id',
+                                         'path_lower')
 
     # Adds button to list page for populating the Import Files from Dropbox.
     change_list_template = 'admin/import_file_change_list.html'
@@ -76,6 +84,9 @@ class ImportFileAdmin(admin.ModelAdmin):
             return 'Shopify not configured'
             return None
 
+        if obj.is_importing():
+            return 'Import Job Running'
+
         return format_html(
             '<a class="button" href="{}">Export to Shopify</a>',
             reverse('admin:{}_export-shopify'.format(current_app_name),
@@ -93,7 +104,7 @@ class ImportFileAdmin(admin.ModelAdmin):
             ),
             path(
                 '<int:import_file_id>/export/',
-                self.admin_site.admin_view(self.export_to_shopify),
+                self.admin_site.admin_view(self.start_shopify_export),
                 name='{}_export-shopify'.format(current_app_name),
             ),
         ] + super().get_urls()
@@ -101,35 +112,36 @@ class ImportFileAdmin(admin.ModelAdmin):
     # Views ###################################################################
 
     @check_referer
-    def export_to_shopify(self, request, import_file_id):
+    def start_shopify_export(self, request, import_file_id):
         """Handles the HTTP request and dispatches the controller action
 
         This handles the HTTP side of things and also catches exceptions and
         displays messages to the user.
         """
 
-        # User has clicked on the export to shopify button. We should have a
-        # valid ImportFile id.
-
+        # Default message type
         message_type = messages.INFO
 
-        c = Controller()
-
+        # User has clicked on the export to shopify button. We should have a
+        # valid ImportFile id.
         try:
-            message = c.export_to_shopify(import_file_id)
-
+            message = Controller().start_shopify_export(import_file_id)
         # Handle error conditions and notify the user
         except ImportFile.DoesNotExist as e:
             message = 'Import file with pk={} not found.'.format(
                 import_file_id)
             message_type = messages.WARNING
+            log.exception(e)
         except ValueError as e:
             message = e
             message_type = messages.WARNING
-        else:
-            # success conditions
-            pass
-            
+            log.exception(e)
+        except Exception as e:
+            message = e
+            message_type = messages.ERROR
+            log.exception(e)
+
+        # Set user message and redirect.
         self.message_user(request, message, message_type)
         return HttpResponseRedirect(request.META['HTTP_REFERER'])
 

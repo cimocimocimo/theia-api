@@ -1,10 +1,10 @@
 from celery import shared_task
 from celery.signals import worker_ready, worker_shutdown
-import logging, sys
+import logging
 from pprint import pprint, pformat
 from csv_parser.models import CSVRows
 
-log = logging.getLogger('django')
+log = logging.getLogger('development')
 
 from interfaces import DropboxInterface, ShopifyInterface
 from core.models import Company, Inventory, FulfillmentService
