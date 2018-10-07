@@ -42,18 +42,57 @@ def check_referer(func):
         return func(obj, request, *args, **kwargs)
     return _check_referer
 
+class ImportAdminBase(admin.ModelAdmin):
 
-@admin.register(ImportFile)
-class ImportFileAdmin(admin.ModelAdmin):
-
-    # Prevent adding or deleting ImportFiles manually.
+    # Prevent adding, changing, or deleting Model objects manually.
     def has_add_permission(self, request, obj=None):
         return False
     def has_delete_permission(self, request, obj=None):
         return False
+    def has_change_permission(self, request, obj=None):
+        return False
 
+    # Company link formatter
+    def format_company_link(self, name, pk):
+        return format_html(
+            '<a href="{}">{}</a>',
+            reverse(
+                'admin:core_company_change',
+                args=(pk,)),
+            name,)
+
+
+class ImportJobInline(admin.TabularInline):
+
+    model = ImportJob
+    show_change_link = True
+    fields = (
+        'status',
+        'start_time',
+        'end_time',)
+
+    # Prevent adding, changing, or deleting Model objects manually.
+    def has_add_permission(self, request, obj=None):
+        return False
+    def has_delete_permission(self, request, obj=None):
+        return False
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    pass
+
+@admin.register(ImportFile)
+class ImportFileAdmin(ImportAdminBase):
+
+    fields = ('filename',
+        'server_modified',
+        'company_link',
+        'export_type',
+        'import_status',
+        'file_actions', # Renders buttons to trigger actions, defined below.
+    )
     # Fields to show on the list/change view of the admin
-    list_display = readonly_fields = (
+    list_display = (
         'filename',
         'server_modified',
         'company_link',
@@ -61,18 +100,17 @@ class ImportFileAdmin(admin.ModelAdmin):
         'import_status',
         'file_actions', # Renders buttons to trigger actions, defined below.
     )
-    # Set 2 additional fields as read only.
-    readonly_fields = readonly_fields + ('company', 'dropbox_id',
-                                         'path_lower')
+    list_filter = (
+        'company__name',
+        'export_type__name',
+        'server_modified',
+    )
 
     # Adds button to list page for populating the Import Files from Dropbox.
     change_list_template = 'admin/import_file_change_list.html'
 
     def company_link(self, obj):
-        return format_html(
-            '<a href="{}">{}</a>',
-            reverse('admin:core_company_change', args=(obj.company.pk,)),
-            obj.company.name,)
+        return self.format_company_link(obj.company.name, obj.company.pk)
     company_link.short_description = 'Company'
 
     # Returns HTML button for file actions.
@@ -92,6 +130,9 @@ class ImportFileAdmin(admin.ModelAdmin):
             reverse('admin:{}_export-shopify'.format(current_app_name),
                     args=[obj.pk]))
     file_actions.short_description = 'Actions'
+
+    inlines = [
+        ImportJobInline,]
 
     # URLs ####################################################################
 
@@ -147,6 +188,12 @@ class ImportFileAdmin(admin.ModelAdmin):
 
     @check_referer
     def load_files(self, request):
+        """Loads import files from Dropbox.
+        """
+
+        # TODO: Refactor this into the controller. Only keep logic related to
+        # Admin UI.
+
         redirect_url = request.META['HTTP_REFERER']
 
         # list all files in the dropbox export folder
@@ -221,3 +268,51 @@ class ImportFileAdmin(admin.ModelAdmin):
         self.message_user(request, "Import Files have been loaded.")
         return HttpResponseRedirect(redirect_url)
 
+
+@admin.register(ImportJob)
+class ImportJobAdmin(ImportAdminBase):
+
+    def import_file_link(self, obj):
+        url = reverse(
+                'admin:dropbox_import_importfile_change',
+                args=(obj.import_file.pk,))
+        return format_html(
+            '<a href="{}">{}</a>',
+            url,
+            obj.import_file.filename,)
+    import_file_link.short_description = 'Import File'
+    import_file_link.admin_order_field = 'import_file__server_modified'
+        
+    def get_export_type(self, obj):
+        return obj.import_file.export_type.name
+    get_export_type.short_description = 'Export Type'
+    get_export_type.admin_order_field = 'import_file__export_type'
+
+    fields = (
+        '__str__',
+        'import_file_link',
+        'company_link',
+        'get_export_type',
+        'status',
+        'start_time',
+        'end_time',)
+    list_display = (
+        '__str__',
+        'import_file_link',
+        'company_link',
+        'get_export_type',
+        'status',
+        'start_time',
+        'end_time',
+    )
+    list_filter = (
+        'import_file__company__name',
+        'import_file__export_type__name',
+        'status',
+        'start_time',
+    )
+
+    def company_link(self, obj):
+        return self.format_company_link(obj.import_file.company.name,
+                                        obj.import_file.company.pk)
+    company_link.short_description = 'Company'

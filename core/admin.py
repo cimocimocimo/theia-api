@@ -1,14 +1,18 @@
 import logging
+
 from django.contrib import admin
 from django.urls import path, reverse
 from django.http import HttpResponseRedirect
 from django.contrib import messages
 from django.utils.html import format_html
+
 from .models import Company, FulfillmentService
 from interfaces import ShopifyInterface
 
+
 log = logging.getLogger('development')
 current_app_name = __package__.rsplit('.', 1)[-1]
+
 
 class FulfillmentServiceInline(admin.TabularInline):
     model = FulfillmentService

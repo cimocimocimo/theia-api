@@ -1,21 +1,19 @@
-import sys, logging, dropbox
-
-from django.conf import settings
-from django.contrib import messages
+import logging, dropbox
 from pprint import pprint, pformat
 from datetime import datetime, timedelta
+
+from django.conf import settings
 
 from core.models import Company, FulfillmentService
 from dropbox_import.models import (ImportFile, ExportType, ImportJob,
                                    ImportJobLogEntry)
 from interfaces import DropboxInterface, ShopifyInterface
-from csv_parser.models import CSVRows
-from dropbox_import.importers import InventoryImporter
-from dropbox_import.exporters import InventoryExporter
 from .tasks import export_to_shopify
+
 
 log = logging.getLogger('development')
 dropbox_interface = DropboxInterface()
+
 
 class Controller:
     """
@@ -30,10 +28,8 @@ class Controller:
         """Imports Dropbox data file and then exports to Shopify.
         """
         log.debug('start_shopify_export()')
-
         # get the import file
         file = ImportFile.objects.get(pk=import_file_id)
-
         # try to start celery task
         try:
             job = file.start_job_task(job_task=export_to_shopify)
@@ -43,47 +39,6 @@ class Controller:
 
         return 'Export job started successfully or company "{}"'.format(
             file.company)
-
-        try:
-            shop = ShopifyInterface(shop_url=file.company.shop_url)
-        except Exception as e:
-            log.exception(e)
-            raise
-
-        try:
-            import_fulfillment_service = FulfillmentService.objects.get(
-                is_import_destination=True,
-                company=file.company,)
-        except FulfillmentService.DoesNotExist as e:
-            log.exception(e)
-            raise
-
-        # download the file
-        try:
-            filemeta, response = DropboxInterface().download_file(
-                file.dropbox_id)
-        except Exception as e:
-            log.exception(e)
-            raise
-
-        # TODO: Capture the file format errors from CSVRows and add them to the
-        # ImportJob log entries.
-        rows = CSVRows(response.content,
-                       file.export_type.name)
-        importer = InventoryImporter(company=file.company,
-                                     rows=rows)
-        importer.import_data()
-
-        # exporter = InventoryExporter(
-        #     company=company,
-        #     location_id=import_fulfillment_service.location_id)
-        # try:
-        #     exporter.export_data()
-        # except Exception as e:
-        #     log.exception(e)
-
-        return 'weeeeeeeeee'
-
 
     def get_import_data(self):
         """Fetch import files from dropbox

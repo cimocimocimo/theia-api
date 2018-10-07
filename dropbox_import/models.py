@@ -99,24 +99,28 @@ class ImportFile(models.Model):
         job.start(job_task=job_task, extra=extra)
         return job
 
+
 class ImportJob(models.Model):
     # Import Statuses
     NOT_STARTED = 'NOT_STARTED'
     RUNNING = 'RUNNING'
     SUCCESS = 'SUCCESS'
     ERROR = 'ERROR'
-    STATUS_CHOICES = ((NOT_STARTED, 'Celery Task Not Started'),
-                      (RUNNING, 'Celery Task Running'),
-                      (SUCCESS, 'Job Completed Successfully'),
-                      (ERROR, 'Job Completed with Errors'),)
+    STATUS_CHOICES = ((NOT_STARTED, 'Not Started'),
+                      (RUNNING, 'Running'),
+                      (SUCCESS, 'Completed Successfully'),
+                      (ERROR, 'Error - Not Completed'),)
 
     status = models.CharField(max_length=16,
                               choices=STATUS_CHOICES,
                               default=NOT_STARTED)
     import_file = models.ForeignKey(ImportFile, on_delete = models.CASCADE)
     celery_task_id = models.CharField(max_length = 50, unique=True, null=True)
-    start_time = models.DateTimeField(default=timezone.now)
-    end_time = models.DateTimeField(null=True)
+    start_time = models.DateTimeField(default=timezone.now, verbose_name='Started')
+    end_time = models.DateTimeField(null=True, verbose_name='Finished')
+
+    class Meta:
+        ordering = ('-start_time',)
 
     def start(self, job_task, extra={}):
         # Format the keyword args for the celery tasks
@@ -174,15 +178,7 @@ def job_error(self, *args,
     job.finish(err=True)
     pass
 
-class ImportJobLogEntry(models.Model):
-    # levels = (DEBUG,
-    #           INFO,
-    #           WARNING,
-    #           ERROR,
-    #           CRITICAL,)
-
 
 
     import_job = models.ForeignKey(ImportJob, on_delete = models.CASCADE)
     pass
-

@@ -1,9 +1,10 @@
 import logging, re
-from interfaces import RedisInterface
 
 from core.models import Inventory
 
-log = logging.getLogger('django')
+
+log = logging.getLogger('development')
+
 
 """
 These import the Product and Inventory CSV files
@@ -14,7 +15,6 @@ then process all the lines of that file to create the needed objects
 
 class ImporterBase:
     def __init__(self, company=None, rows=None):
-        self.redis = RedisInterface()
         self.rows = rows
         self.company = company
 
