@@ -30,9 +30,8 @@ class Command(BaseCommand):
         if subcommand == 'reset-inventory':
             self.stdout.write('Choose a company to reset inventory in shopfy.', ending='\n\n')
 
-            i = 1
-            for c in companies:
-                self.stdout.write('{}. {} - {}'.format(i, c.name, c.shop_url))
+            for i, c in enumerate(companies):
+                self.stdout.write('{}. {} - {}'.format(i+1, c.name, c.shop_url))
 
             self.stdout.write('')
 
