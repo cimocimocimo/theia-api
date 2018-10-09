@@ -13,7 +13,7 @@ from .models import ImportFile, ExportType
 from core.models import Company
 from interfaces import DropboxInterface
 from core.controllers import Controller
-from .models import ImportFile, ImportJob
+from .models import ImportFile, ImportJob, ImportJobLogEntry
 
 
 log = logging.getLogger('development')
@@ -79,7 +79,6 @@ class ImportJobInline(admin.TabularInline):
     def has_change_permission(self, request, obj=None):
         return False
 
-    pass
 
 @admin.register(ImportFile)
 class ImportFileAdmin(ImportAdminBase):
@@ -269,6 +268,24 @@ class ImportFileAdmin(ImportAdminBase):
         return HttpResponseRedirect(redirect_url)
 
 
+class ImportJobLogEntryInline(admin.TabularInline):
+
+    model = ImportJobLogEntry
+    show_change_link = True
+    fields = (
+        'level',
+        'entry_date',
+        'message',)
+
+    # Prevent adding, changing, or deleting Model objects manually.
+    def has_add_permission(self, request, obj=None):
+        return False
+    def has_delete_permission(self, request, obj=None):
+        return False
+    def has_change_permission(self, request, obj=None):
+        return False
+
+
 @admin.register(ImportJob)
 class ImportJobAdmin(ImportAdminBase):
 
@@ -316,3 +333,10 @@ class ImportJobAdmin(ImportAdminBase):
         return self.format_company_link(obj.import_file.company.name,
                                         obj.import_file.company.pk)
     company_link.short_description = 'Company'
+
+    inlines = [
+        ImportJobLogEntryInline,]
+
+@admin.register(ImportJobLogEntry)
+class ImportFileAdmin(ImportAdminBase):
+    pass

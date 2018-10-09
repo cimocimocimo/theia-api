@@ -7,6 +7,7 @@ from django.conf import settings
 from core.models import Company, FulfillmentService
 from dropbox_import.models import (ImportFile, ExportType, ImportJob,
                                    ImportJobLogEntry)
+from dropbox_import.db_logger import DBLogger
 from interfaces import DropboxInterface, ShopifyInterface
 from .tasks import export_to_shopify
 
@@ -30,9 +31,11 @@ class Controller:
         log.debug('start_shopify_export()')
         # get the import file
         file = ImportFile.objects.get(pk=import_file_id)
+        # Create an ImportJob for this file
+        job = ImportJob.objects.create(import_file=file)
         # try to start celery task
         try:
-            job = file.start_job_task(job_task=export_to_shopify)
+            job.start(job_task=export_to_shopify)
         except Exception as e:
             # There was an error starting the celery task
             raise
