@@ -4,7 +4,7 @@ from pprint import pprint, pformat
 log = logging.getLogger('development')
 
 class ShopifyInterface:
-    def __init__(self, shop_url=None):
+    def __init__(self, shop_url=None, default_location_id=None):
         """setup connection to Shopify"""
         log.debug('Init ShopifyInterface')
 
@@ -28,6 +28,9 @@ class ShopifyInterface:
             raise
         else:
             self.can_connect = True
+
+        # need a location id for setting inventory
+        self.default_location = shopify.Location.find(default_location_id)
 
         self.products = False
         self.variants = False
@@ -100,13 +103,8 @@ class ShopifyInterface:
         self.__inventory_levels = value
 
     def reset_inventory(self, location=None):
-        for key, level in self.inventory_levels.items():
-            # skip if a location instance was passed and its id does not match
-            # the location_id of the current level.
-            if location and location.id != level.location_id:
-                continue
-            if isinstance(level.available, int) and level.available > 0:
-                self._set_inventory_level(level, 0)
+        for key, variant in self.variants.items():
+            self.set_level_available(variant, 0)
 
     def update_product(self, pid, attr, value):
         prod = self.products[pid]
@@ -118,18 +116,33 @@ class ShopifyInterface:
             setattr(prod, attr, value)
             prod.save()
 
-    def set_level_available(self, location_id, inventory_item_id, available):
-        shopify.InventoryLevel.set(
-            location_id=location_id,
-            inventory_item_id=inventory_item_id,
-            available=available)
-
-    def get_level_available(self, location_id, variant_id):
-        level = self.inventory_levels[(location_id, variant_id)]
-        if not isinstance(level, shopify.InventoryLevel):
-            return None
-        else:
+    def get_level_available(self, variant):
+        level = self.inventory_levels[
+            (self.default_location.id, variant.inventory_item_id)]
+        try:
             return level.available
+        except Exception as e:
+            log.exception(e)
+            return None
+
+    def set_level_available(self, variant, available):
+        key = (self.default_location.id, variant.inventory_item_id)
+        level = self.inventory_levels[key]
+        # Only update if the available amounts are different.
+        if level.available == available:
+            return level
+        new_level = shopify.InventoryLevel.set(
+            location_id=self.default_location.id,
+            inventory_item_id=variant.inventory_item_id,
+            # We're using a fulfillment service so we can only have one
+            # location for each inventory_level
+            # https://help.shopify.com/en/api/reference/inventory/inventorylevel#inventory-levels-and-fulfillment-service-locations
+            disconnect_if_necessary=True,
+            available=available)
+        # save the updated level
+        self.inventory_levels[key] = new_level
+        return new_level
+
 
     def _set_inventory_level(self, level, available):
         shopify.InventoryLevel.set(
