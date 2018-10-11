@@ -4,19 +4,12 @@ from pprint import pprint, pformat
 log = logging.getLogger('development')
 
 class ShopifyInterface:
-    def __init__(self, shop_url=None, default_location_id=None):
+    def __init__(self, shop_url, fulfillment_service_id=None):
         """setup connection to Shopify"""
         log.debug('Init ShopifyInterface')
 
         # Setup API client
-        if shop_url:
-            self.shop_url = shop_url
-        else:
-            message = '{}.__init__() requires a valid Shopify URL.'.format(
-                self.__class__.__name__)
-            log.warning(message)
-            raise ValueError(message)
-
+        self.shop_url = shop_url
         shopify.ShopifyResource.set_site(self.shop_url)
 
         # test to ensure shop_url is valid
@@ -24,20 +17,23 @@ class ShopifyInterface:
             # Returns the Shop data. Simple and quick way to test.
             self.shop = shopify.Shop.current()
         except Exception as e:
-            log.exception(e)
             raise
         else:
             self.can_connect = True
 
-        # need a location id for setting inventory
-        self.default_location = shopify.Location.find(default_location_id)
-
         self.products = False
         self.variants = False
-        self.locations = False
         self.fulfillment_services = False
         self.inventory_items = False
         self.inventory_levels = False
+        # set default fulfilment service
+        if fulfillment_service_id:
+            self.set_default_fulfillment(fulfillment_service_id)
+        else:
+            self.default_fulfillment = False
+
+    def set_default_fulfillment(self, service_id):
+        self.default_fulfillment = self.fulfillment_services[service_id]
 
     @property
     def products(self):
@@ -60,16 +56,6 @@ class ShopifyInterface:
         self.__variants = value
 
     @property
-    def locations(self):
-        if not self.__locations:
-            self.__locations = self._get_from_shopify(shopify.Location)
-        return self.__locations
-
-    @locations.setter
-    def locations(self, value):
-        self.__locations = value
-
-    @property
     def fulfillment_services(self):
         if not self.__fulfillment_services:
             self.__fulfillment_services = self._get_from_shopify(
@@ -83,42 +69,36 @@ class ShopifyInterface:
 
     @property
     def inventory_levels(self):
+        if not self.default_fulfillment:
+            raise ValueError('FulfillmentService needs to be set.')
         if not self.__inventory_levels:
-            # join location ids into a string to pass to the find method
-            location_ids_string = ','.join([str(id) for id in self.locations])
-            # get the inventory levels for all locations
-            inv_levels = self._get_all_paged(
-                shopify.InventoryLevel.find,
-                location_ids=location_ids_string)
-            # save the inventory levels
             self.__inventory_levels = {
-                # Use tuple as key with locaction_id and inventory_item_id since
-                # InventoryLevels don't have their own id attribute.
-                (x.location_id, x.inventory_item_id) : x
-                for x in inv_levels }
+                x.inventory_item_id:x
+                for x in self._get_all_paged(
+                        shopify.InventoryLevel.find,
+                        location_ids=self.default_fulfillment.location_id)}
         return self.__inventory_levels
 
     @inventory_levels.setter
     def inventory_levels(self, value):
         self.__inventory_levels = value
 
-    def reset_inventory(self, location=None):
+    def reset_inventory(self):
+        log.debug('Resetting Inventory')
         for key, variant in self.variants.items():
             self.set_level_available(variant, 0)
 
-    def update_product(self, pid, attr, value):
-        prod = self.products[pid]
+    def update_product(self, product, attr, value):
         # only update product if values don't match
-        if getattr(prod, attr) != value:
+        if getattr(product, attr) != value:
             # Since we are updating the property of an object we don't need to
             # save the object back to the dict. The value is updated by
             # reference.
-            setattr(prod, attr, value)
-            prod.save()
+            setattr(product, attr, value)
+            product.save()
 
     def get_level_available(self, variant):
-        level = self.inventory_levels[
-            (self.default_location.id, variant.inventory_item_id)]
+        level = self.inventory_levels[variant.inventory_item_id]
         try:
             return level.available
         except Exception as e:
@@ -126,23 +106,25 @@ class ShopifyInterface:
             return None
 
     def set_level_available(self, variant, available):
-        key = (self.default_location.id, variant.inventory_item_id)
+        key = variant.inventory_item_id
         level = self.inventory_levels[key]
+
         # Only update if the available amounts are different.
         if level.available == available:
             return level
+
         new_level = shopify.InventoryLevel.set(
-            location_id=self.default_location.id,
-            inventory_item_id=variant.inventory_item_id,
+            location_id=self.default_fulfillment.location_id,
+            inventory_item_id=key,
             # We're using a fulfillment service so we can only have one
             # location for each inventory_level
             # https://help.shopify.com/en/api/reference/inventory/inventorylevel#inventory-levels-and-fulfillment-service-locations
             disconnect_if_necessary=True,
             available=available)
+
         # save the updated level
         self.inventory_levels[key] = new_level
         return new_level
-
 
     def _set_inventory_level(self, level, available):
         shopify.InventoryLevel.set(

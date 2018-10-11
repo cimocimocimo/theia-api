@@ -22,6 +22,7 @@ class Migration(migrations.Migration):
                 ('shopify_shop_name', models.CharField(blank=True, max_length=256, null=True, unique=True)),
                 ('shopify_api_key', models.CharField(blank=True, max_length=256, null=True)),
                 ('shopify_password', models.CharField(blank=True, max_length=256, null=True)),
+                ('shopify_url_is_valid', models.BooleanField(default=False)),
             ],
         ),
     ]

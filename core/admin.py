@@ -126,6 +126,7 @@ class CompanyAdmin(admin.ModelAdmin):
         # Get or create the company object for this import file
         service_args = {
             'company': company,
+            'service_id': service.id,
             'location_id': service.location_id,
             'handle': service.handle,
             'name': service.name,

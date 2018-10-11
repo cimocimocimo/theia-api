@@ -73,6 +73,7 @@ class Company(models.Model):
 
 class FulfillmentService(models.Model):
     company = models.ForeignKey(Company, on_delete=models.CASCADE)
+    service_id = models.BigIntegerField(unique=True)
     location_id = models.BigIntegerField()
     handle = models.CharField(max_length=256, blank=True, null=True)
     name = models.CharField(max_length=256, blank=True, null=True)

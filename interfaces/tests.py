@@ -43,8 +43,32 @@ class ShopifyInterfaceTest(TestCase):
             log.debug('Missing "testing-fulfillment-service", please create')
 
     def setUp(self):
+
         log.debug('{}.setUp()'.format(self.__class__.__name__))
-        
+        # get the testing fulfillment service, normally we would get this value
+        # from the local database.
+        self.service = shopify.FulfillmentService.find(
+            scope='all',
+            name='Testing Fulfillment Service')[0]
+
+        self.shop = ShopifyInterface(
+            shop_url=shopify_testing_url,
+            fulfillment_service_id=self.service.id)
+
+        # Get an arbitrary variant
+        variant_id, self.variant = next(iter(self.shop.variants.items()))
+
+        # Get an arbitrary product
+        product_id, self.product = next(iter(self.shop.products.items()))
+
+    def test_init(self):
+        # test init Exceptions
+        # invalid shop_url, valid default_location_id
+        self.assertRaises(ValueError, ShopifyInterface,
+                          'bogus_url', self.service.id)
+        self.assertRaises(KeyError, ShopifyInterface,
+                          shopify_testing_url, 1234)
+
     def test_variants(self):
 
         # TODO: This could be refactored to test the private methods
@@ -69,7 +93,7 @@ class ShopifyInterfaceTest(TestCase):
         
         shop = ShopifyInterface(
             shop_url=shopify_testing_url,
-            default_location_id=service.location_id)
+            fulfillment_service_id=service.id)
 
         # Get an arbitrary variant
         variant_id, variant = next(iter(shop.variants.items()))
@@ -79,7 +103,7 @@ class ShopifyInterfaceTest(TestCase):
             inventory_item_id=variant.inventory_item_id,
             location_id=service.location_id,
             available=0)
-
+        
         # set it's inventory level
         shop.set_level_available(variant, 99)
         # get it back
@@ -101,6 +125,21 @@ class ShopifyInterfaceTest(TestCase):
 
         shop.set_level_available(variant, 0)
 
+    def test_update_product(self):
+        # Save the original product_type attribute
+        original_type = self.product.product_type
+        testing_type = 'Testing Type'
+        # Change to another value
+        self.shop.update_product(self.product, 'product_type', testing_type)
+        # get the product from the api directly
+        product = shopify.Product.find(self.product.id)
+        self.assertEqual(product.product_type, testing_type)
+        # Change to original value
+        self.shop.update_product(self.product, 'product_type', original_type)
+        # get the product from the api directly
+        product = shopify.Product.find(self.product.id)
+        self.assertEqual(product.product_type, original_type)
+
     def test_reset_inventory(self):
         # get the testing fulfillment service, normally we would get this value
         # from the local database.
@@ -110,7 +149,7 @@ class ShopifyInterfaceTest(TestCase):
         
         shop = ShopifyInterface(
             shop_url=shopify_testing_url,
-            default_location_id=service.location_id)
+            fulfillment_service_id=service.id)
 
         # Get an arbitrary variant
         variant_id, variant = next(iter(shop.variants.items()))

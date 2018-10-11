@@ -143,8 +143,6 @@ class Controller:
         if not company.has_shop_url:
             return
 
-        shop = ShopifyInterface(company)
-
         # Get import fulfillment service for this company
         try:
             import_fulfillment_service = FulfillmentService.objects.get(company=company.id,
@@ -155,10 +153,13 @@ class Controller:
                     company.name))
             return
 
+        shop = ShopifyInterface(company.shop_url,
+                                import_fulfillment_service.id)
+
         shop.reset_inventory()
 
         # Change product_type for Theia only, this is the only company that
         # requires this for moving products between the shop and the lookbook.
         if company.name == 'Theia':
             for key, prod in shop.products.items():
-                shop.update_product(key, 'product_type', 'Theia Collection')
+                shop.update_product(prod, 'product_type', 'Theia Collection')
