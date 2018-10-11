@@ -48,7 +48,9 @@ class ShopifyInterface:
     @property
     def variants(self):
         if not self.__variants:
-            self.__variants = self._get_from_shopify(shopify.Variant)
+            self.__variants = self._get_from_shopify(
+                shopify.Variant,
+                fulfillment_service=self.default_fulfillment.handle)
         return self.__variants
 
     @variants.setter

@@ -61,6 +61,10 @@ class Command(BaseCommand):
                     # reset store inventory to 0
                     Controller().reset_inventory(company)
 
+                    self.stdout.write(
+                        'Completed inventory reset of company {}.'.format(
+                            company.name))
+
             except Exception as e:
                 self.stderr.write(
                     'NOT resetting inventory, exiting.')

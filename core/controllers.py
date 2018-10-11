@@ -154,7 +154,7 @@ class Controller:
             return
 
         shop = ShopifyInterface(company.shop_url,
-                                import_fulfillment_service.id)
+                                import_fulfillment_service.service_id)
 
         shop.reset_inventory()
 

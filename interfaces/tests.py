@@ -73,7 +73,8 @@ class ShopifyInterfaceTest(TestCase):
 
         # TODO: This could be refactored to test the private methods
         # _get_from_shopify() and _get_all_paged()
-        shop = ShopifyInterface(shop_url=shopify_testing_url)
+        shop = ShopifyInterface(shop_url=shopify_testing_url,
+                                fulfillment_service_id=self.service.id)
         # Variants should return a dict
         self.assertIsInstance(shop.variants, dict)
         # Get an arbitrary item from the dict.
