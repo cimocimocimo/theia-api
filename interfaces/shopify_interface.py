@@ -48,9 +48,11 @@ class ShopifyInterface:
     @property
     def variants(self):
         if not self.__variants:
-            self.__variants = self._get_from_shopify(
-                shopify.Variant,
-                fulfillment_service=self.default_fulfillment.handle)
+            self.__variants = {
+                v.id:v
+                for v in self._get_all_paged(
+                        shopify.Variant.find)
+                if v.fulfillment_service == self.default_fulfillment.handle}
         return self.__variants
 
     @variants.setter
@@ -93,11 +95,9 @@ class ShopifyInterface:
     def update_product(self, product, attr, value):
         # only update product if values don't match
         if getattr(product, attr) != value:
-            # Since we are updating the property of an object we don't need to
-            # save the object back to the dict. The value is updated by
-            # reference.
             setattr(product, attr, value)
             product.save()
+            self.products[product.id] = product
 
     def get_level_available(self, variant):
         level = self.inventory_levels[variant.inventory_item_id]
@@ -109,7 +109,11 @@ class ShopifyInterface:
 
     def set_level_available(self, variant, available):
         key = variant.inventory_item_id
-        level = self.inventory_levels[key]
+        try:
+            level = self.inventory_levels[key]
+        except KeyError as e:
+            log.exception(e)
+            log.debug(pformat(variant.to_dict()))
 
         # Only update if the available amounts are different.
         if level.available == available:

@@ -18,68 +18,46 @@ class InventoryExporter():
     Export the latest inventory data to the shops for each company.
     """
 
-    def __init__(self, company, location_id):
+    def __init__(self, company, fulfillment_service_id):
         self.company = company
-        self.location_id = location_id
+        self.fulfillment_service_id = fulfillment_service_id
         self.inventory = Inventory(company.name)
-        self.shop = ShopifyInterface(shop_url=company.shop_url)
+        self.shop = ShopifyInterface(
+            shop_url=company.shop_url,
+            fulfillment_service_id=fulfillment_service_id)
         self._numb_products_updated = 0
 
     def export_data(self):
 
-        # get the products from shopify
-        self._products = self.shopify.get_products()
-
-        # loop over the products
-        for p in self._products:
-            # flag for saving
+        for variant_id, variant in self.shop.variants.items():
             save_needed = False
             has_invalid_upc = False
             invalid_upcs = []
 
-            # loop over the variants
-            for v in p.variants:
+            # check for a upc
+            upc = variant.barcode
 
-                # check for a upc
-                upc = v.barcode
+            # check for valid UPC
+            if not is_upc_valid(upc):
+                has_invalid_upc = True
+                invalid_upcs.append(upc)
+                continue
 
-                # check for valid UPC
-                if not is_upc_valid(upc):
-                    has_invalid_upc = True
-                    invalid_upcs.append(upc)
-                    continue
+            self.shop.set_level_available(variant,
+                                          self.get_quantity_by_upc(upc))
 
-                # update the variant quantity by upc
-                original_quantity = v.inventory_quantity
-                v.inventory_quantity = self.get_quantity_by_upc(upc)
-                if original_quantity != v.inventory_quantity:
-                    save_needed = True
-
-            # TODO: Do I need to use this? Could I just leave the product_type
-            # alone?
-            # update the product collection for Theia only
-            if self.company.name == 'Theia':
+        # TODO: Do I need to use this? Could I just leave the product_type
+        # alone?
+        # update the product collection for Theia only
+        if self.company.name == 'Theia':
+            # loop over the products
+            for p_id, p in self.shop.products.items():
                 # is the product instock?
                 if self.is_product_in_stock(p) and 'Bridal' not in p.tags:
-                    # ensure the product type is correct
-                    if p.product_type != 'Theia Shop':
-                        p.product_type = 'Theia Shop'
-                        save_needed = True
-
+                    self.shop.update_product(p, 'product_type', 'Theia Shop')
                 else:
                     # out of stock, make sure it goes in the lookbook
-                    if p.product_type != 'Theia Collection':
-                        p.product_type = 'Theia Collection'
-                        save_needed = True
-
-            if has_invalid_upc:
-                log.warning(
-                    'Product handle {} has invalid UPCs: {}'
-                    .format(p.handle, invalid_upcs))
-
-            if save_needed:
-                self._numb_products_updated += 1
-                p.save()
+                    self.shop.update_product(p, 'product_type', 'Theia Collection')
 
         # Reset the current inventory.
         self.inventory.reset()
@@ -103,8 +81,12 @@ class InventoryExporter():
                         quantity, upc))
 
     def is_product_in_stock(self, product):
-        for v in product.variants:
-            if v.inventory_quantity and v.inventory_quantity > 0:
+        # get a list of variants for this product
+        variant_quantities = [ self.shop.get_level_available(v)
+                     for v in self.shop.variants.values()
+                     if v.product_id == product.id ]
+        for q in variant_quantities:
+            if q > 0:
                 return True
         return False
 

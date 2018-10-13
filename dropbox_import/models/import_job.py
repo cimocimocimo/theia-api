@@ -80,7 +80,7 @@ class ImportJob(models.Model):
 def job_success(self, return_value, *args,
                 import_file_id=None, import_job_id=None, **kwargs):
     print('linked success')
-    pprint(locals())
+    print(locals())
     # Mark ImportJob as success
     job = ImportJob.objects.get(pk=import_job_id)
     DBLogger(import_job=job).info('Job completed successfully.')
@@ -91,7 +91,7 @@ def job_success(self, return_value, *args,
 def job_error(self, *args,
               import_file_id=None, import_job_id=None, **kwargs):
     print('linked error')
-    pprint(locals())
+    print(locals())
     # Mark ImportJob as success
     job = ImportJob.objects.get(pk=import_job_id)
     DBLogger(import_job=job).error('Error occurred processing job.')

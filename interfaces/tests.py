@@ -77,6 +77,7 @@ class ShopifyInterfaceTest(TestCase):
                                 fulfillment_service_id=self.service.id)
         # Variants should return a dict
         self.assertIsInstance(shop.variants, dict)
+
         # Get an arbitrary item from the dict.
         vid, variant = next(iter(shop.variants.items()))
         # Should be an instance of a variant.

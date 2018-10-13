@@ -46,12 +46,12 @@ def export_to_shopify(self, import_job_id):
                                  rows=rows)
     importer.import_data()
 
-    # exporter = InventoryExporter(
-    #     company=company,
-    #     location_id=import_fulfillment_service.location_id)
-    # try:
-    #     exporter.export_data()
-    # except Exception as e:
-    #     log.exception(e)
+    exporter = InventoryExporter(
+        company=company,
+        fulfillment_service_id=import_fulfillment_service.service_id)
+    try:
+        exporter.export_data()
+    except Exception as e:
+        log.exception(e)
 
     return True
