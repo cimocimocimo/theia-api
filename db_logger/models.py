@@ -7,7 +7,7 @@ from django.utils import timezone
 log = logging.getLogger('django')
 
 
-class ImportJobLogEntry(models.Model):
+class DBLogEntry(models.Model):
     INFO = 'INFO'
     WARNING = 'WARNING'
     ERROR = 'ERROR'
@@ -20,7 +20,9 @@ class ImportJobLogEntry(models.Model):
                                default=INFO)
     message = models.TextField()
     entry_date = models.DateTimeField(default=timezone.now)
-    import_job = models.ForeignKey('dropbox_import.ImportJob', on_delete = models.CASCADE)
+    import_job = models.ForeignKey('dropbox_import.ImportJob',
+                                   on_delete = models.CASCADE,
+                                   null=True)
 
     class Meta:
         verbose_name = 'Log Entry'

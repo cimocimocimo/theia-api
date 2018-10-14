@@ -33,6 +33,7 @@ INSTALLED_APPS = [
     'django_extensions',
 
     # Local Apps
+    'db_logger.apps.DbLoggerConfig',
     'core.apps.CoreConfig',
     'webhook.apps.WebhookConfig',
     'dropbox_import.apps.DropboxImportConfig',

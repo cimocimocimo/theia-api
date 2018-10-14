@@ -5,9 +5,7 @@ from datetime import datetime, timedelta
 from django.conf import settings
 
 from core.models import Company, FulfillmentService
-from dropbox_import.models import (ImportFile, ExportType, ImportJob,
-                                   ImportJobLogEntry)
-from dropbox_import.db_logger import DBLogger
+from dropbox_import.models import ImportFile, ExportType, ImportJob
 from interfaces import DropboxInterface, ShopifyInterface
 from .tasks import export_to_shopify
 

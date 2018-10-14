@@ -9,11 +9,11 @@ from django.utils.html import format_html
 from django.contrib import messages
 from django.utils.timezone import make_aware
 
-from .models import ImportFile, ExportType
-from core.models import Company
 from interfaces import DropboxInterface
+from core.models import Company
 from core.controllers import Controller
-from .models import ImportFile, ImportJob, ImportJobLogEntry
+from .models import ImportFile, ExportType, ImportJob
+from db_logger.models import DBLogEntry
 
 
 log = logging.getLogger('development')
@@ -268,9 +268,9 @@ class ImportFileAdmin(ImportAdminBase):
         return HttpResponseRedirect(redirect_url)
 
 
-class ImportJobLogEntryInline(admin.TabularInline):
+class DBLogEntryInline(admin.TabularInline):
 
-    model = ImportJobLogEntry
+    model = DBLogEntry
     show_change_link = True
     fields = (
         'level',
@@ -335,8 +335,4 @@ class ImportJobAdmin(ImportAdminBase):
     company_link.short_description = 'Company'
 
     inlines = [
-        ImportJobLogEntryInline,]
-
-@admin.register(ImportJobLogEntry)
-class ImportFileAdmin(ImportAdminBase):
-    pass
+        DBLogEntryInline,]

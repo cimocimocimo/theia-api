@@ -5,10 +5,11 @@ from celery import shared_task
 from django.db import models
 from django.utils import timezone
 
-from ..db_logger import DBLogger
+import db_logger
 
 
 log = logging.getLogger('django')
+dblog = db_logger.get_logger()
 
 
 class ImportJob(models.Model):
@@ -55,7 +56,7 @@ class ImportJob(models.Model):
         self.status = self.RUNNING
         self.celery_task_id = task.id
         self.save()
-        DBLogger(import_job=self).info('Task started successfully.')
+        dblog.info('Task started successfully.', self.pk)
         return self
 
     def finish(self, err=False):
@@ -83,9 +84,9 @@ def job_success(self, return_value, *args,
     print(locals())
     # Mark ImportJob as success
     job = ImportJob.objects.get(pk=import_job_id)
-    DBLogger(import_job=job).info('Job completed successfully.')
+    dblog.info('Job completed successfully.', import_job_id)
     job.finish()
-    pass
+
 
 @shared_task(bind=True)
 def job_error(self, *args,
@@ -94,6 +95,7 @@ def job_error(self, *args,
     print(locals())
     # Mark ImportJob as success
     job = ImportJob.objects.get(pk=import_job_id)
-    DBLogger(import_job=job).error('Error occurred processing job.')
+
+    dblog.error('Error occurred processing job.', import_job_id)
+
     job.finish(err=True)
-    pass

@@ -4,7 +4,7 @@ from pprint import pprint, pformat
 from celery import shared_task
 from celery.signals import worker_ready, worker_shutdown
 
-from dropbox_import.models import ImportFile, ImportJob, ImportJobLogEntry
+from dropbox_import.models import ImportFile, ImportJob
 from core.models import Company, FulfillmentService
 from csv_parser.models import CSVRows
 from dropbox_import.importers import InventoryImporter
