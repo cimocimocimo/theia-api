@@ -1,11 +1,15 @@
 import logging, re, os, dropbox, redis
 from datetime import timedelta
-from django.conf import settings
 from pprint import pprint, pformat
+
+from django.conf import settings
+
 
 log = logging.getLogger('development')
 
+
 class DropboxInterface:
+
     redis_namespace = 'dropbox'
     cursor_key_format = '{prefix}:cursor'
 
@@ -14,6 +18,7 @@ class DropboxInterface:
         self.redis_client = redis.StrictRedis(host=settings.REDIS_DOMAIN,
                                                    db=settings.REDIS_DB,
                                                    port=settings.REDIS_PORT)
+        self.__cursor = None
 
     # Upload, Delete, and Get Files
     def upload_files(self, files, path='/'):
@@ -36,9 +41,31 @@ class DropboxInterface:
         # list all files in dropbox
         entries, cursor = self._get_result_entries(
             path=settings.DROPBOX_EXPORT_FOLDER, recursive=True)
+        self._save_cursor(cursor)
         return entries
 
-    # private methods
+    def list_changed_files(self):
+        """Lists the latest file changes in Dropbox.
+
+        Should only be called when responding to a Dropbox webhook request. It
+        expects that ImportFile instances have all been created for the files
+        that were in Dropbox before the change. Also expects a file_list
+        cursor to be stored in Redis.
+
+        Raises RuntimeError if the initialization function hasn't been run.
+        """
+
+        cursor = self._get_cursor()
+        if not cursor:
+            raise RuntimeError
+
+        entries, cursor = self._get_result_entries(
+            cursor, path=settings.DROPBOX_EXPORT_FOLDER, recursive=True)
+        self._save_cursor(cursor)
+        return entries
+
+    # Private Methods #########################################################
+
     def _format_cursor_key(self):
         return self.cursor_key_format.format(
             prefix=self.redis_namespace)
@@ -65,7 +92,6 @@ class DropboxInterface:
     def _delete_cursor(self):
         self.redis_client.delete(self._format_cursor_key())
 
-
     def _get_result_entries(self, cursor=None, *args, **kwargs):
         log.debug('calling _get_result_entries(cursor={}, args={}, kwargs={})'
                   .format(cursor, args, kwargs))
@@ -91,7 +117,6 @@ class DropboxInterface:
             has_more = result.has_more
 
         return entries, cursor
-
 
     # Need to initialize the worker state for dropbox
     # Get the files already present in dropbox.

@@ -1,32 +1,20 @@
-from celery import shared_task
-from celery.signals import worker_ready, worker_shutdown
 import logging
 from pprint import pprint, pformat
+
+from celery import shared_task
+from celery.signals import worker_ready, worker_shutdown
+
 from csv_parser.models import CSVRows
-
-log = logging.getLogger('development')
-
 from interfaces import DropboxInterface, ShopifyInterface
 from core.models import Company, Inventory, FulfillmentService
 from .importers import InventoryImporter
 from .exporters import InventoryExporter
+from core.controllers import Controller
 
-@shared_task(bind=True)
-def handle_notification(self, data):
-    """Process notification data from dropbox and start import tasks
-    """
 
-    log.debug('handle_notification task')
+log = logging.getLogger('development')
+controller = Controller()
 
-    # Get the changed files that triggered the webhook.
-    files_to_import = DropboxInterface().get_new_import_files(data)
-
-    log.debug(pformat(files_to_import))
-
-    # Process each inventory file in subtask, skip product data for now.
-    [ process_inventory_file.delay(f)
-      for f in files_to_import
-      if f['export_type'] == 'Inventory' ]
 
 @shared_task(bind=True)
 def process_inventory_file(self, import_file):
@@ -55,9 +43,6 @@ def process_inventory_file(self, import_file):
                 import_file['export_type'], import_file['company']))
         return
 
-    # Load Shopify FulfillmentService for this company
-    shop = ShopifyInterface(company)
-
     # get the fulfillment service that has been set as the destination
     try:
         import_fulfillment_service = FulfillmentService.objects.get(
@@ -69,6 +54,8 @@ def process_inventory_file(self, import_file):
             'No import destination has been set for company: {}'
             .format(company.name))
         return
+
+    shop = ShopifyInterface(company.shop_url, import_fulfillment_service.id)
 
     # download the file
     dropbox_interface = DropboxInterface()
@@ -98,14 +85,7 @@ def import_script_startup(sender, **kwargs):
     log.debug('worker_ready signal')
     log.debug(sender)
 
-    # We're only interested in the files that have changed in dropbox, not the
-    # ones that are already there. So we should get a list of the existing
-    # files in dropbox and store them and the dropbox file list cursor.
-
-    # Instantiate DropboxInterface
-    dropbox_interface = DropboxInterface()
-    # Lists files in dropbox and saves the cursor to redis.
-    dropbox_interface.startup()
+    controller.startup()
 
 
 @worker_shutdown.connect

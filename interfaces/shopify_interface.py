@@ -1,9 +1,12 @@
 import logging, shopify
 from pprint import pprint, pformat
 
+
 log = logging.getLogger('development')
 
+
 class ShopifyInterface:
+
     def __init__(self, shop_url, fulfillment_service_id=None):
         """setup connection to Shopify"""
         log.debug('Init ShopifyInterface')

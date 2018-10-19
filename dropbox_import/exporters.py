@@ -70,7 +70,6 @@ class InventoryExporter():
         except Exception as e:
             log.exception(e)
             log.warning('Unable to get quantity with upc: {}'.format(upc))
-            return 0
         else:
             try:
                 return int(quantity)
@@ -79,6 +78,7 @@ class InventoryExporter():
                 log.warning(
                     'Unable to cast quantity value: {} to in for upc: {}'.format(
                         quantity, upc))
+        return 0
 
     def is_product_in_stock(self, product):
         # get a list of variants for this product

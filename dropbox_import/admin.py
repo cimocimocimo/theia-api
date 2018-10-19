@@ -19,6 +19,7 @@ from db_logger.models import DBLogEntry
 log = logging.getLogger('development')
 dropbox_interface = DropboxInterface()
 current_app_name = __package__.rsplit('.', 1)[-1]
+controller = Controller()
 
 
 def check_referer(func):
@@ -165,7 +166,7 @@ class ImportFileAdmin(ImportAdminBase):
         # User has clicked on the export to shopify button. We should have a
         # valid ImportFile id.
         try:
-            message = Controller().start_shopify_export(import_file_id)
+            message = controller.start_shopify_export(import_file_id)
         # Handle error conditions and notify the user
         except ImportFile.DoesNotExist as e:
             message = 'Import file with pk={} not found.'.format(

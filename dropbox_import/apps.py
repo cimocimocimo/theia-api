@@ -6,10 +6,10 @@ class DropboxImportConfig(AppConfig):
 
     def ready(self):
         # register webhook
-        from .views import verify_webhook, process_notification
+        from .views import verify_webhook, process_webhook_notification
         register_webhook(
             'dropbox-updated',
             {
                 'GET': verify_webhook,
-                'POST': process_notification,
+                'POST': process_webhook_notification,
             })

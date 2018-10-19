@@ -59,11 +59,13 @@ class ImportJob(models.Model):
         dblog.info('Task started successfully.', self.pk)
         return self
 
-    def finish(self, err=False):
+    def finish(self, msg=False, err=False):
         if err:
             self.status = self.ERROR
         else:
             self.status = self.SUCCESS
+        if msg:
+            dblog.error(msg, self.pk)
         self.end_time = timezone.now()
         self.save()
 

@@ -1,8 +1,10 @@
-import logging, dropbox
+import logging, pytz
 from pprint import pprint, pformat
 from datetime import datetime, timedelta
 
+import dropbox
 from django.conf import settings
+from django.utils.timezone import make_aware
 
 from core.models import Company, FulfillmentService
 from dropbox_import.models import ImportFile, ExportType, ImportJob
@@ -14,14 +16,150 @@ log = logging.getLogger('development')
 dropbox_interface = DropboxInterface()
 
 
+class Collector:
+    """Collects results from repeated calls of methods.
+    """
+
+    def __init__(self):
+        pass
+
 class Controller:
     """
     Main logic for the data_importer app.
     """
+    # TODO: Make the controller a singleton to allow for better communication
+    # https://python-3-patterns-idioms-test.readthedocs.io/en/latest/Singleton.html
 
     def __init__(self):
         """Init Controller"""
         log.debug('Controller initialized')
+
+    def startup(self):
+        # TODO: Add DB log entry
+        self.load_files_from_dropbox()
+        pass
+
+    def load_files_from_dropbox(self):
+        # list all files in the dropbox export folder
+        dropbox_files = dropbox_interface.list_all_files()
+        total_numb_files = len(dropbox_files)
+        # TODO: add DB log entry for number of files in dropbox
+
+        # Delete files in DB that are not in Dropbox.
+        # Create a list of dropbox file ids.
+        filemeta_ids = [ filemeta.id for filemeta in dropbox_files]
+        # Delete ImportFiles that don't exist in Dropbox.
+        numb_deleted, numb_deleted_by_model = ImportFile.objects.exclude(
+            dropbox_id__in=filemeta_ids).delete()
+        # TODO: Log the number of ImportFiles deleted.
+
+        for filemeta in dropbox_files:
+            # TODO: collect the returned results
+            self.process_dropbox_filemeta(filemeta)
+            pass
+        
+    def process_dropbox_filemeta(self, filemeta, collector=None):
+
+        # TODO: return the results of the processing
+
+        # Skip over new folders
+        if type(filemeta) == dropbox.files.FolderMetadata:
+            return
+            
+        elif type(filemeta) == dropbox.files.DeletedMetadata:
+            # Remove the local ImportFile.
+            ImportFile.objects.get(path_lower=filemeta.path_lower).delete()
+            pass
+
+        elif type(filemeta) == dropbox.files.FileMetadata:
+            # create or update model instances
+
+            # get the company and export type
+            try:
+                company_name, export_type_name = ImportFile.parse_company_export_type(
+                    filemeta.name)
+            except ValueError as e:
+                # skip any files that don't have company and export types
+                # TODO: Log this warning to the DB as well.
+                log.warning(e)
+
+            # Create the company 
+            try:
+                company, created = Company.objects.get_or_create(
+                    name=company_name)
+            except ValueError as e:
+                log.warning(e)
+            except Exception as e:
+                log.exception(e)
+
+            try:
+                export_type, created = ExportType.objects.get_or_create(
+                    name=export_type_name)
+            except ValueError as e:
+                log.warning(e)
+            except Exception as e:
+                log.exception(e)
+                return
+
+            try:
+                import_file, created = ImportFile.objects.update_or_create(
+                    dropbox_id=filemeta.id,
+                    defaults={
+                        'path_lower': filemeta.path_lower,
+                        'filename': filemeta.name,
+                        'server_modified': make_aware(filemeta.server_modified, timezone=pytz.UTC),
+                        'company': company,
+                        'export_type': export_type,})
+            except ValueError as e:
+                log.warning(e)
+            except Exception as e:
+                log.exception(e)
+            else:
+                return import_file
+
+        return True
+        
+    def handle_dropbox_file_change_notification(self):
+        """Lists files that have been changed in dropbox and processes them.
+
+        This lists the changed files in Dropbox in response to the webhook
+        call. New companies and export types are created. ImportFile
+        instances are created and deleted as needed.
+
+        - List the changed files
+          - Check for a cursor, This is created during app initialization.
+          - If no cursor then raise exception
+          - Handle exception and re-init app.
+            - We don't know what files were changed so we can't import them.
+        - Process each file
+          - Create Company, ExportType if needed.
+        - Add new ImportFiles and start ImportJob in a celery task.
+        - Delete old files from dropbox and their associated ImportFiles
+        - Delete ImportFiles if they have been deleted on dropbox manually
+
+        Note:  This function NEEDS to complete within 10 seconds so that the
+        calling function can reply with a HTTP 200 response to Dropbox. Avoid
+        extra network calls were possible. Only communicate with dropbox api.
+        """
+
+        try:
+            changed_files = dropbox_interface.list_changed_files()
+        except RuntimeError as e:
+            # run startup to reinitialize the app
+            self.startup()
+            # raise to catch and log the exception further up.
+            raise
+
+        collector = Collector()
+
+        # process each changed file
+        for filemeta in changed_files:
+            ret_val = self.process_dropbox_filemeta(filemeta, collector)
+
+            # start import job for any new or edited files
+            if type(filemeta) == dropbox.files.FileMetadata:
+                if isinstance(ret_val, ImportFile):
+                    self.start_shopify_export(ret_val.id)
 
     def start_shopify_export(self, import_file_id):
         """Imports Dropbox data file and then exports to Shopify.
@@ -119,6 +257,8 @@ class Controller:
         else:
             return None
 
+
+    # TODO: Function is unused in current app, remove later.
     def update_shop_inventory(self, company_name=None):
         try:
             companies = self._get_companies_or_none(company_name)
@@ -136,6 +276,7 @@ class Controller:
 
             exporter = InventoryExporter(c)
             exporter.export_data()
+
 
     def reset_inventory(self, company):
         if not company.has_shop_url:
