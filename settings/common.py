@@ -33,9 +33,10 @@ INSTALLED_APPS = [
     'django_extensions',
 
     # Local Apps
+    'db_logger.apps.DbLoggerConfig',
     'core.apps.CoreConfig',
     'webhook.apps.WebhookConfig',
-    'data_import.apps.DataImportConfig',
+    'dropbox_import.apps.DropboxImportConfig',
 ]
 
 MIDDLEWARE = [
@@ -93,7 +94,7 @@ AUTH_PASSWORD_VALIDATORS = [
 
 LANGUAGE_CODE = 'en-us'
 
-TIME_ZONE = 'UTC'
+TIME_ZONE = 'America/Vancouver'
 
 USE_I18N = True
 
@@ -141,16 +142,14 @@ LOGGING = {
     },
 }
 
+# Database
+RDS_HOSTNAME = 'jsgroup-postgresdb.cmkwoh1xi8ne.us-east-1.rds.amazonaws.com'
+RDS_PORT =5432
+
 # Redis
 REDIS_PROTOCOL = 'redis://'
-REDIS_DOMAIN = 'theia-api-dev.iby5d3.0001.use1.cache.amazonaws.com'
+REDIS_DOMAIN = 'js-group-api.zratp1.0001.use1.cache.amazonaws.com'
 REDIS_PORT = 6379
-
-# Dropbox settings
-DROPBOX_APP_KEY = os.environ['DROPBOX_APP_KEY']
-DROPBOX_APP_SECRET = os.environ['DROPBOX_APP_SECRET']
-DROPBOX_TOKEN = os.environ['DROPBOX_TOKEN']
-DROPBOX_EXPORT_FOLDER = os.environ.setdefault('DROPBOX_EXPORT_FOLDER', '/e-commerce')
 
 # Celery
 CELERY_ACCEPT_CONTENT = ['application/json']
@@ -169,5 +168,5 @@ CACHES = {
 }
 
 # Sessions
-SESSION_ENGINE = "django.contrib.sessions.backends.cache"
+SESSION_ENGINE = "django.contrib.sessions.backends.db"
 SESSION_CACHE_ALIAS = "default"

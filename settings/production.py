@@ -10,9 +10,8 @@ DEBUG = False
 
 ALLOWED_HOSTS = [
     'localhost',
-    'api.theiacouture.com',
-    'theia-api-prod.us-east-1.elasticbeanstalk.com',
-    'theia-api-production.us-east-1.elasticbeanstalk.com',]
+    'api.jsgroup.com',
+    'jsgroup-api-prod.us-east-1.elasticbeanstalk.com',]
 
 # Database
 # https://docs.djangoproject.com/en/1.10/ref/settings/#databases
@@ -20,16 +19,16 @@ ALLOWED_HOSTS = [
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql_psycopg2',
-        'NAME': os.environ['PROD_RDS_DB_NAME'],
-        'USER': os.environ['PROD_RDS_USERNAME'],
+        'NAME': 'api_production',
+        'USER': 'api_production',
         'PASSWORD': os.environ['PROD_RDS_PASSWORD'],
-        'HOST': os.environ['RDS_HOSTNAME'],
-        'PORT': os.environ['RDS_PORT'],
+        'HOST': RDS_HOSTNAME,
+        'PORT': RDS_PORT,
     }
 }
 
 # Redis
-REDIS_DB = os.environ['PROD_REDIS_DB']
+REDIS_DB = 2
 REDIS_URL = '{}{}:{}/{}'.format(
     REDIS_PROTOCOL,
     REDIS_DOMAIN,
@@ -42,3 +41,9 @@ CACHES['default']['LOCATION'] = REDIS_URL
 # Celery
 CELERY_BROKER_URL = REDIS_URL
 CELERY_RESULT_BACKEND = REDIS_URL
+
+# Dropbox settings
+DROPBOX_APP_KEY = os.environ['PROD_DROPBOX_APP_KEY']
+DROPBOX_APP_SECRET = os.environ['PROD_DROPBOX_APP_SECRET']
+DROPBOX_TOKEN = os.environ['PROD_DROPBOX_TOKEN']
+DROPBOX_EXPORT_FOLDER = '/e-commerce'

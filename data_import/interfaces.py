@@ -171,7 +171,7 @@ class DropboxInterface:
 
     def _save_cursor_for_account(self, account, cursor):
         key = self._format_redis_cursor_key(account)
-        expire = timedelta(days=1)
+        expire = timedelta(days=7)
         self.redis_client.hset(
             key,
             account, cursor)
