@@ -110,8 +110,8 @@ STATIC_URL = '/static/'
 STATIC_ROOT = os.path.join(BASE_DIR, 'static')
 
 # Logging
-MAX_LOG_SIZE = 1024*1000*5 # 5MB in bytes
-LOG_DIR = os.environ.get('DJANGO_LOG_DIR', '/opt/python/log/')
+MAX_LOG_SIZE = 1024*1024*10 # 10MB in bytes
+LOG_DIR = os.environ.get('DJANGO_LOG_DIR', '/opt/python/log/jsgroup-api-log/')
 LOG_LEVEL = os.environ.get('DJANGO_LOG_LEVEL', 'WARNING')
 LOG_FORMAT = os.environ.get('DJANGO_LOG_FORMAT', 'normal')
 LOGGING = {
@@ -119,25 +119,40 @@ LOGGING = {
     'disable_existing_loggers': False,
     'loggers': {
         'django': {
-            'handlers': ['file'],
+            'handlers': ['default'],
             'level': LOG_LEVEL,
             'propagate': True,
         },
+        'django.request': { # Stop SQL debug from logging to main logger
+            'handlers': ['request'],
+            'level': LOG_LEVEL,
+            'propagate': False ,
+        },
     },
     'handlers': {
-        'file': {
-            'class': 'logging.FileHandler',
+        'default': {
+            'class': 'logging.handlers.RotatingFileHandler',
             'level': LOG_LEVEL,
             'filename': LOG_DIR + 'django.log',
+            'maxBytes': MAX_LOG_SIZE,
+            'backupCount': 5,
             'formatter': 'normal',
         },
+        'request': {
+            'class': 'logging.handlers.RotatingFileHandler',
+            'level': LOG_LEVEL,
+            'filename': LOG_DIR + 'request.log',
+            'maxBytes': MAX_LOG_SIZE,
+            'backupCount': 5,
+            'formatter': 'normal',
+        }
     },
     'formatters': {
         'verbose': {
             'format': '%(levelname)s %(asctime)s %(module)s %(process)d %(thread)d\n%(message)s'
         },
         'normal': {
-            'format': '%(levelname)s %(asctime)s\n%(message)s'
+            'format': '%(asctime)s [%(levelname)s] %(name)s:\n%(message)s\n',
         },
     },
 }
