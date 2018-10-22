@@ -111,7 +111,7 @@ STATIC_ROOT = os.path.join(BASE_DIR, 'static')
 
 # Logging
 MAX_LOG_SIZE = 1024*1024*10 # 10MB in bytes
-LOG_DIR = os.environ.get('DJANGO_LOG_DIR', '/opt/python/log/jsgroup-api-log/')
+LOG_DIR = os.environ.get('DJANGO_LOG_DIR', '/opt/python/log/')
 LOG_LEVEL = os.environ.get('DJANGO_LOG_LEVEL', 'WARNING')
 LOG_FORMAT = os.environ.get('DJANGO_LOG_FORMAT', 'normal')
 LOGGING = {
