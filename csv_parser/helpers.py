@@ -1,8 +1,8 @@
-from datetime import datetime, timedelta
-from decimal import *
-import re
+import re, logging
 
-import logging
+from decimal import *
+from datetime import datetime, timedelta
+
 
 log = logging.getLogger('django')
 
@@ -31,7 +31,7 @@ def is_upc_valid(upc):
     # upc should be 12 digits long
     return len(str(upc)) == 12
 
-def valid_upc_from_str(upc):
+def valid_upc_or_none_from_str(upc):
     """return a valid upc from passed string or None"""
     if is_upc_valid(upc):
         return int(upc)
