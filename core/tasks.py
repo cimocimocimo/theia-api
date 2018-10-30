@@ -23,6 +23,10 @@ def export_to_shopify(self, import_job_id):
     log.debug(
         'export_to_shopify(import_job_id={})'.format(import_job_id))
 
+    dblog.info(
+        'Celery task started export_to_shopify(import_job_id={})'.format(
+            import_job_id), import_job_id)
+
     # get the current import job
     job = ImportJob.objects.get(pk=import_job_id)
 

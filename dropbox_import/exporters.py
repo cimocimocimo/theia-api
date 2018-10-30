@@ -31,7 +31,6 @@ class InventoryExporter():
 
         for variant_id, variant in self.shop.variants.items():
             save_needed = False
-            has_invalid_upc = False
             invalid_upcs = []
 
             # check for a upc
@@ -39,7 +38,6 @@ class InventoryExporter():
 
             # check for valid UPC
             if not is_upc_valid(upc):
-                has_invalid_upc = True
                 invalid_upcs.append(upc)
                 continue
 

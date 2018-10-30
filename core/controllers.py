@@ -23,6 +23,7 @@ class Collector:
     def __init__(self):
         pass
 
+
 class Controller:
     """
     Main logic for the data_importer app.
@@ -164,9 +165,16 @@ class Controller:
     def start_shopify_export(self, import_file_id):
         """Imports Dropbox data file and then exports to Shopify.
         """
+
         log.debug('start_shopify_export()')
         # get the import file
         file = ImportFile.objects.get(pk=import_file_id)
+
+        # Skip Product Exports
+        if file.export_type == 'Product':
+            log.debug('Skipping Product export file.')
+            return
+
         # Create an ImportJob for this file
         job = ImportJob.objects.create(import_file=file)
         # try to start celery task
