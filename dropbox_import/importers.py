@@ -64,5 +64,10 @@ class InventoryImporter(ImporterBase):
     def process_row(self, row):
         upc = row['UPC']
 
-        # store upc in redis set
-        self.inventory.add_item(upc, row)
+        # upc might be set to None
+        # TODO: Move this check to the CSVRows model. We should filter all bad
+        # data out there. This Importer should only take sanitized data and
+        # save it to Redis.
+        if upc:
+            # store upc in redis set
+            self.inventory.add_item(upc, row)

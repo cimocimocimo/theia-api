@@ -16,14 +16,6 @@ log = logging.getLogger('development')
 dropbox_interface = DropboxInterface()
 
 
-class Collector:
-    """Collects results from repeated calls of methods.
-    """
-
-    def __init__(self):
-        pass
-
-
 class Controller:
     """
     Main logic for the data_importer app.
@@ -150,8 +142,6 @@ class Controller:
             self.startup()
             # raise to catch and log the exception further up.
             raise
-
-        collector = Collector()
 
         # process each changed file
         for filemeta in changed_files:

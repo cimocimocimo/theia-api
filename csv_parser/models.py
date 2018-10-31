@@ -1,7 +1,7 @@
 import csv, logging
 
-from core.controllers import Collector
 from .schemas import schemas
+
 
 log = logging.getLogger('development')
 
@@ -10,7 +10,7 @@ class CSVRows:
     """Provides an itererator interface for the ImportFile csv data"""
 
     def __init__(self, text, schema_name):
-        self.schema = self.schemas[schema_name]
+        self.schema = schemas[schema_name]
 
         lines = text.splitlines()
         # trim the trailing comma, the export files all seem to have it. By
