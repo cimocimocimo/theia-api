@@ -2,7 +2,6 @@ from datetime import datetime, timedelta
 from decimal import *
 import re
 
-
 import logging
 
 log = logging.getLogger('django')

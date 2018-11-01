@@ -33,9 +33,10 @@ INSTALLED_APPS = [
     'django_extensions',
 
     # Local Apps
+    'db_logger.apps.DbLoggerConfig',
     'core.apps.CoreConfig',
     'webhook.apps.WebhookConfig',
-    'data_import.apps.DataImportConfig',
+    'dropbox_import.apps.DropboxImportConfig',
 ]
 
 MIDDLEWARE = [
@@ -93,7 +94,7 @@ AUTH_PASSWORD_VALIDATORS = [
 
 LANGUAGE_CODE = 'en-us'
 
-TIME_ZONE = 'UTC'
+TIME_ZONE = 'America/Vancouver'
 
 USE_I18N = True
 
@@ -109,7 +110,7 @@ STATIC_URL = '/static/'
 STATIC_ROOT = os.path.join(BASE_DIR, 'static')
 
 # Logging
-MAX_LOG_SIZE = 1024*1000*5 # 5MB in bytes
+MAX_LOG_SIZE = 1024*1024*10 # 10MB in bytes
 LOG_DIR = os.environ.get('DJANGO_LOG_DIR', '/opt/python/log/')
 LOG_LEVEL = os.environ.get('DJANGO_LOG_LEVEL', 'WARNING')
 LOG_FORMAT = os.environ.get('DJANGO_LOG_FORMAT', 'normal')
@@ -118,39 +119,52 @@ LOGGING = {
     'disable_existing_loggers': False,
     'loggers': {
         'django': {
-            'handlers': ['file'],
+            'handlers': ['default'],
             'level': LOG_LEVEL,
             'propagate': True,
         },
+        'django.request': { # Stop SQL debug from logging to main logger
+            'handlers': ['request'],
+            'level': LOG_LEVEL,
+            'propagate': False ,
+        },
     },
     'handlers': {
-        'file': {
-            'class': 'logging.FileHandler',
+        'default': {
+            'class': 'logging.handlers.RotatingFileHandler',
             'level': LOG_LEVEL,
             'filename': LOG_DIR + 'django.log',
+            'maxBytes': MAX_LOG_SIZE,
+            'backupCount': 5,
             'formatter': 'normal',
         },
+        'request': {
+            'class': 'logging.handlers.RotatingFileHandler',
+            'level': LOG_LEVEL,
+            'filename': LOG_DIR + 'request.log',
+            'maxBytes': MAX_LOG_SIZE,
+            'backupCount': 5,
+            'formatter': 'normal',
+        }
     },
     'formatters': {
         'verbose': {
             'format': '%(levelname)s %(asctime)s %(module)s %(process)d %(thread)d\n%(message)s'
         },
         'normal': {
-            'format': '%(levelname)s %(asctime)s\n%(message)s'
+            'format': '%(asctime)s [%(levelname)s] %(name)s:\n%(message)s\n',
         },
     },
 }
 
+# Database
+RDS_HOSTNAME = 'jsgroup-postgresdb.cmkwoh1xi8ne.us-east-1.rds.amazonaws.com'
+RDS_PORT =5432
+
 # Redis
 REDIS_PROTOCOL = 'redis://'
-REDIS_DOMAIN = 'theia-api-dev.iby5d3.0001.use1.cache.amazonaws.com'
+REDIS_DOMAIN = 'js-group-api.zratp1.0001.use1.cache.amazonaws.com'
 REDIS_PORT = 6379
-
-# Dropbox settings
-DROPBOX_APP_KEY = os.environ['DROPBOX_APP_KEY']
-DROPBOX_APP_SECRET = os.environ['DROPBOX_APP_SECRET']
-DROPBOX_TOKEN = os.environ['DROPBOX_TOKEN']
-DROPBOX_EXPORT_FOLDER = os.environ.setdefault('DROPBOX_EXPORT_FOLDER', '/e-commerce')
 
 # Celery
 CELERY_ACCEPT_CONTENT = ['application/json']
@@ -169,5 +183,5 @@ CACHES = {
 }
 
 # Sessions
-SESSION_ENGINE = "django.contrib.sessions.backends.cache"
+SESSION_ENGINE = "django.contrib.sessions.backends.db"
 SESSION_CACHE_ALIAS = "default"

@@ -16,18 +16,17 @@ ALLOWED_HOSTS = ['*',]
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql_psycopg2',
-        'NAME': os.environ.setdefault('DEV_RDS_DB_NAME', 'theia_api'),
-        'USER': os.environ.setdefault('DEV_RDS_USERNAME', 'theia'),
-        'PASSWORD': os.environ.setdefault('DEV_RDS_PASSWORD', 'theia'),
-        'HOST': os.environ.setdefault('RDS_HOSTNAME', '127.0.0.1'),
-        'PORT': os.environ.setdefault('RDS_PORT', '5432'),
+        'NAME': 'theia_api',
+        'USER': 'theia',
+        'PASSWORD': 'theia',
+        'HOST': '127.0.0.1',
+        'PORT': '5432',
     }
 }
 
 # Redis
-REDIS_DB = os.environ['DEV_REDIS_DB']
-if 'DEV_REDIS_DOMAIN' in os.environ:
-    REDIS_DOMAIN = os.environ['DEV_REDIS_DOMAIN']
+REDIS_DB = 0
+REDIS_DOMAIN = 'localhost'
 REDIS_URL = '{}{}:{}/{}'.format(
     REDIS_PROTOCOL,
     REDIS_DOMAIN,
@@ -40,3 +39,23 @@ CACHES['default']['LOCATION'] = REDIS_URL
 # Celery
 CELERY_BROKER_URL = REDIS_URL
 CELERY_RESULT_BACKEND = REDIS_URL
+
+# Dropbox settings
+DROPBOX_APP_KEY = os.environ['DEV_DROPBOX_APP_KEY']
+DROPBOX_APP_SECRET = os.environ['DEV_DROPBOX_APP_SECRET']
+DROPBOX_TOKEN = os.environ['DEV_DROPBOX_TOKEN']
+DROPBOX_EXPORT_FOLDER = '/jsgroup-api-dev'
+
+# development log
+LOGGING['loggers']['development'] = {
+    'handlers': ['development'],
+    'level': 'DEBUG',
+    'propagate': True,
+}
+LOGGING['handlers']['development'] = {
+    'class': 'logging.FileHandler',
+    'level': 'DEBUG',
+    'filename': LOG_DIR + 'development.log',
+    'formatter': 'normal',
+}
+
