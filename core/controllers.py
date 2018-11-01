@@ -51,7 +51,7 @@ class Controller:
             self.process_dropbox_filemeta(filemeta)
             pass
         
-    def process_dropbox_filemeta(self, filemeta, collector=None):
+    def process_dropbox_filemeta(self, filemeta):
 
         # TODO: return the results of the processing
 
@@ -145,7 +145,7 @@ class Controller:
 
         # process each changed file
         for filemeta in changed_files:
-            ret_val = self.process_dropbox_filemeta(filemeta, collector)
+            ret_val = self.process_dropbox_filemeta(filemeta)
 
             # start import job for any new or edited files
             if type(filemeta) == dropbox.files.FileMetadata:
